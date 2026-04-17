@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: futurekawa_db
+    environment:
+
+      POSTGRES_DB: bdd_bresil
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: futurekawa_jenkins
+    ports:
+      - "8080:8080"
