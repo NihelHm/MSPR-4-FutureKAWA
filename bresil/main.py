@@ -1,17 +1,18 @@
 from fastapi import FastAPI, HTTPException
 import psycopg2
 import psycopg2.extras
+import os
 
 app = FastAPI(title="FutureKawa API - Brésil")
 
 
 def get_connection():
     return psycopg2.connect(
-        dbname="bdd_bresil",
-        user="user",
-        password="password",
-        host="localhost",
-        port="5432"
+        dbname=os.getenv("DB_NAME", "bdd_bresil"),
+        user=os.getenv("DB_USER", "user"),
+        password=os.getenv("DB_PASSWORD", "password"),
+        host=os.getenv("DB_HOST", "db"),
+        port=os.getenv("DB_PORT", "5432")
     )
 
 
@@ -25,20 +26,11 @@ def get_pays():
     try:
         conn = get_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-        cursor.execute("""
-            SELECT id, nom
-            FROM pays
-            ORDER BY id;
-        """)
-
-        pays = cursor.fetchall()
-
+        cursor.execute("SELECT id, nom FROM pays ORDER BY id;")
+        data = cursor.fetchall()
         cursor.close()
         conn.close()
-
-        return {"pays": pays}
-
+        return {"pays": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -48,20 +40,11 @@ def get_sites():
     try:
         conn = get_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-        cursor.execute("""
-            SELECT id, nom, localisation, pays_id
-            FROM site
-            ORDER BY id;
-        """)
-
-        sites = cursor.fetchall()
-
+        cursor.execute("SELECT id, nom, localisation, pays_id FROM site ORDER BY id;")
+        data = cursor.fetchall()
         cursor.close()
         conn.close()
-
-        return {"sites": sites}
-
+        return {"sites": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -71,20 +54,15 @@ def get_lots():
     try:
         conn = get_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
         cursor.execute("""
             SELECT id, reference, date_reception, date_stockage, statut, site_id
             FROM lot
             ORDER BY id;
         """)
-
-        lots = cursor.fetchall()
-
+        data = cursor.fetchall()
         cursor.close()
         conn.close()
-
-        return {"lots": lots}
-
+        return {"lots": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -94,20 +72,15 @@ def get_capteurs():
     try:
         conn = get_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
         cursor.execute("""
             SELECT id, nom, type_capteur, site_id
             FROM capteur
             ORDER BY id;
         """)
-
-        capteurs = cursor.fetchall()
-
+        data = cursor.fetchall()
         cursor.close()
         conn.close()
-
-        return {"capteurs": capteurs}
-
+        return {"capteurs": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -117,7 +90,6 @@ def get_temperature():
     try:
         conn = get_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
         cursor.execute("""
             SELECT t.id,
                    t.valeur,
@@ -129,14 +101,10 @@ def get_temperature():
             JOIN capteur c ON t.capteur_id = c.id
             ORDER BY t.date_mesure DESC;
         """)
-
-        temperatures = cursor.fetchall()
-
+        data = cursor.fetchall()
         cursor.close()
         conn.close()
-
-        return {"temperature": temperatures}
-
+        return {"temperature": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -146,7 +114,6 @@ def get_humidite():
     try:
         conn = get_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
         cursor.execute("""
             SELECT h.id,
                    h.valeur,
@@ -158,61 +125,9 @@ def get_humidite():
             JOIN capteur c ON h.capteur_id = c.id
             ORDER BY h.date_mesure DESC;
         """)
-
-        humidites = cursor.fetchall()
-
+        data = cursor.fetchall()
         cursor.close()
         conn.close()
-
-        return {"humidite": humidites}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/sites/{site_id}/lots")
-def get_lots_by_site(site_id: int):
-    try:
-        conn = get_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-        cursor.execute("""
-            SELECT id, reference, date_reception, date_stockage, statut, site_id
-            FROM lot
-            WHERE site_id = %s
-            ORDER BY id;
-        """, (site_id,))
-
-        lots = cursor.fetchall()
-
-        cursor.close()
-        conn.close()
-
-        return {"site_id": site_id, "lots": lots}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/sites/{site_id}/capteurs")
-def get_capteurs_by_site(site_id: int):
-    try:
-        conn = get_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-        cursor.execute("""
-            SELECT id, nom, type_capteur, site_id
-            FROM capteur
-            WHERE site_id = %s
-            ORDER BY id;
-        """, (site_id,))
-
-        capteurs = cursor.fetchall()
-
-        cursor.close()
-        conn.close()
-
-        return {"site_id": site_id, "capteurs": capteurs}
-
+        return {"humidite": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:15
+    container_name: db_bresil
+    restart: always
+    environment:
+      POSTGRES_DB: bdd_bresil
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend:
+    build: .
+    container_name: backend_bresil
+    restart: always
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_NAME: bdd_bresil
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_PORT: 5432
+    ports:
+      - "8000:8000"
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: mqtt_bresil
+    restart: always
+    ports:
+      - "1883:1883"
