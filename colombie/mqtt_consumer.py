@@ -1,29 +1,19 @@
-# ==========================================================
-# MQTT CONSUMER - BRÉSIL
-# ==========================================================
-# Ce script écoute les mesures MQTT du Brésil.
-# Les mesures reçues sont insérées dans PostgreSQL.
-# ==========================================================
-
 import json
 import psycopg2
 import paho.mqtt.client as mqtt
 
-
 def get_connection():
     return psycopg2.connect(
-        dbname="bdd_bresil",
+        dbname="bdd_colombie",
         user="user",
         password="password",
         host="localhost",
-        port="5433"
+        port="5434"
     )
 
-
 def on_connect(client, userdata, flags, rc):
-    print("Connecté à MQTT Brésil")
-    client.subscribe("bresil/mesures")
-
+    print("Connecté à MQTT Colombie")
+    client.subscribe("colombie/mesures")
 
 def on_message(client, userdata, msg):
     data = json.loads(msg.payload.decode())
@@ -52,13 +42,11 @@ def on_message(client, userdata, msg):
     cursor.close()
     conn.close()
 
-    print("Mesure Brésil insérée en base")
-
+    print("Mesure Colombie insérée en base")
 
 client = mqtt.Client()
-
 client.on_connect = on_connect
 client.on_message = on_message
 
-client.connect("localhost", 1883, 60)
+client.connect("localhost", 1884, 60)
 client.loop_forever()

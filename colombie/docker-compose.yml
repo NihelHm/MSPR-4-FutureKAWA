@@ -1,50 +1,36 @@
-# ==========================================================
-# DOCKER COMPOSE - FUTUREKAWA BRÉSIL
-# ==========================================================
-
 services:
-
   db:
     image: postgres:15
-    container_name: db_bresil
+    container_name: db_colombie
     restart: always
-
     environment:
-      POSTGRES_DB: bdd_bresil
+      POSTGRES_DB: bdd_colombie
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-
     ports:
-      - "5433:5432"
-
+      - "5434:5432"
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
-
   backend:
     build: .
-    container_name: backend_bresil
+    container_name: backend_colombie
     restart: always
-
     depends_on:
       - db
-
     environment:
-      COUNTRY_NAME: Brésil
+      COUNTRY_NAME: Colombie
       DB_HOST: db
-      DB_NAME: bdd_bresil
+      DB_NAME: bdd_colombie
       DB_USER: user
       DB_PASSWORD: password
       DB_PORT: 5432
-
     ports:
-      - "8000:8000"
-
+      - "8001:8000"
 
   mqtt:
     image: eclipse-mosquitto:2
-    container_name: mqtt_bresil
+    container_name: mqtt_colombie
     restart: always
-
     ports:
-      - "1883:1883"
+      - "1884:1883"
