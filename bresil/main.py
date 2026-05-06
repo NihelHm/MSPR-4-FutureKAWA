@@ -311,7 +311,7 @@ def delete_site(site_id: int):
 
 @app.get("/lots")
 def list_lots():
-    return {"lots": get_all("lot")}
+    return {"lots": get_all("lot", "date_stockage ASC")}
 
 
 @app.get("/lots/{lot_id}")
