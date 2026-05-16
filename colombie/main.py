@@ -615,6 +615,51 @@ def delete_temperature(temperature_id: int):
         temperature_id
     )
 
+# ==========================================================
+# TEMPERATURES D'UN LOT
+# ==========================================================
+# Retourne toutes les mesures température
+# associées au site du lot demandé.
+# ==========================================================
+
+@app.get("/lots/{lot_id}/temperatures")
+def get_temperatures_lot(lot_id: int):
+
+    conn = get_connection()
+
+    cursor = conn.cursor(
+        cursor_factory=psycopg2.extras.RealDictCursor
+    )
+
+    cursor.execute("""
+        SELECT
+            t.id,
+            t.valeur,
+            t.date_mesure,
+            c.nom AS capteur
+        FROM temperature t
+
+        JOIN capteur c
+            ON t.capteur_id = c.id
+
+        JOIN lot l
+            ON l.site_id = c.site_id
+
+        WHERE l.id = %s
+
+        ORDER BY t.date_mesure DESC
+    """, (lot_id,))
+
+    data = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return {
+        "lot_id": lot_id,
+        "temperatures": data
+    }
+
 
 # ==========================================================
 # CRUD HUMIDITE
@@ -682,6 +727,50 @@ def delete_humidite(humidite_id: int):
         humidite_id
     )
 
+# ==========================================================
+# HUMIDITES D'UN LOT
+# ==========================================================
+# Retourne toutes les mesures humidité
+# associées au site du lot demandé.
+# ==========================================================
+
+@app.get("/lots/{lot_id}/humidites")
+def get_humidites_lot(lot_id: int):
+
+    conn = get_connection()
+
+    cursor = conn.cursor(
+        cursor_factory=psycopg2.extras.RealDictCursor
+    )
+
+    cursor.execute("""
+        SELECT
+            h.id,
+            h.valeur,
+            h.date_mesure,
+            c.nom AS capteur
+        FROM humidite h
+
+        JOIN capteur c
+            ON h.capteur_id = c.id
+
+        JOIN lot l
+            ON l.site_id = c.site_id
+
+        WHERE l.id = %s
+
+        ORDER BY h.date_mesure DESC
+    """, (lot_id,))
+
+    data = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return {
+        "lot_id": lot_id,
+        "humidites": data
+    }
 
 # ==========================================================
 # CRUD ALERTES
