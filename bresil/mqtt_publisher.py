@@ -1,27 +1,91 @@
-# ==========================================================
-# MQTT PUBLISHER - BRÉSIL
-# ==========================================================
-# Ce script simule un capteur IoT.
-# Il envoie des mesures vers le broker MQTT du Brésil.
-# ==========================================================
-
 import json
+import random
+import time
 import paho.mqtt.publish as publish
 
 
-data = {
-    "temperature": 26.5,
-    "humidite": 60,
-    "capteur_temp_id": 1,
-    "capteur_hum_id": 2
-}
+MQTT_HOST = "localhost"
+MQTT_PORT = 1883
+MQTT_TOPIC = "bresil/mesures"
 
 
-publish.single(
-    "bresil/mesures",
-    payload=json.dumps(data),
-    hostname="localhost",
-    port=1883
-)
+while True:
 
-print("Message MQTT Brésil envoyé")
+    temperature = round(
+        random.uniform(
+            24,
+            31.5
+        ),
+        1
+    )
+
+
+    humidite = round(
+        random.uniform(
+            45,
+            65
+        ),
+        1
+    )
+
+
+    data = {
+
+        "pays":
+        "bresil",
+
+        "entrepot":
+        "1",
+
+        "temperature":
+        temperature,
+
+        "humidite":
+        humidite,
+
+        "capteur_temp_id":
+        1,
+
+        "capteur_hum_id":
+        2,
+
+        "alerte":
+
+        (
+            temperature > 29
+
+            or
+
+            humidite > 55
+        )
+
+    }
+
+
+    publish.single(
+
+        MQTT_TOPIC,
+
+        payload=json.dumps(
+            data
+        ),
+
+        hostname=MQTT_HOST,
+
+        port=MQTT_PORT
+
+    )
+
+
+    print(
+
+        "[BRESIL] MQTT envoyé :",
+
+        data
+
+    )
+
+
+    time.sleep(
+        10
+    )

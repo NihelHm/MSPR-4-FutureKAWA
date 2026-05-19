@@ -1,10 +1,3 @@
-# ==========================================================
-# MQTT CONSUMER - BRÉSIL
-# ==========================================================
-# Ce script écoute les mesures MQTT du Brésil.
-# Les mesures reçues sont insérées dans PostgreSQL.
-# ==========================================================
-
 import json
 import psycopg2
 import paho.mqtt.client as mqtt
@@ -26,37 +19,41 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_message(client, userdata, msg):
-    data = json.loads(msg.payload.decode())
+    try:
+        data = json.loads(msg.payload.decode())
 
-    temperature = data.get("temperature")
-    humidite = data.get("humidite")
-    capteur_temp_id = data.get("capteur_temp_id")
-    capteur_hum_id = data.get("capteur_hum_id")
+        temperature = data.get("temperature")
+        humidite = data.get("humidite")
 
-    conn = get_connection()
-    cursor = conn.cursor()
+        capteur_temp_id = data.get("capteur_temp_id", 1)
+        capteur_hum_id = data.get("capteur_hum_id", 2)
 
-    if temperature is not None:
-        cursor.execute(
-            "INSERT INTO temperature (valeur, capteur_id) VALUES (%s, %s)",
-            (temperature, capteur_temp_id)
-        )
+        conn = get_connection()
+        cursor = conn.cursor()
 
-    if humidite is not None:
-        cursor.execute(
-            "INSERT INTO humidite (valeur, capteur_id) VALUES (%s, %s)",
-            (humidite, capteur_hum_id)
-        )
+        if temperature is not None:
+            cursor.execute(
+                "INSERT INTO temperature (valeur, capteur_id) VALUES (%s, %s)",
+                (temperature, capteur_temp_id)
+            )
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+        if humidite is not None:
+            cursor.execute(
+                "INSERT INTO humidite (valeur, capteur_id) VALUES (%s, %s)",
+                (humidite, capteur_hum_id)
+            )
 
-    print("Mesure Brésil insérée en base")
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        print("[BRESIL] Mesure insérée :", data)
+
+    except Exception as e:
+        print("[BRESIL] Erreur :", e)
 
 
 client = mqtt.Client()
-
 client.on_connect = on_connect
 client.on_message = on_message
 

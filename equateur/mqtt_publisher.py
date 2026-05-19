@@ -1,18 +1,68 @@
+# ==========================================================
+# MQTT PUBLISHER - EQUATEUR (Arduino réel)
+# ==========================================================
+
 import json
+import serial
+import time
 import paho.mqtt.publish as publish
 
-data = {
-    "temperature": 23.0,
-    "humidite": 70,
-    "capteur_temp_id": 1,
-    "capteur_hum_id": 2
-}
 
-publish.single(
-    "equateur/mesures",
-    payload=json.dumps(data),
-    hostname="localhost",
-    port=1885
+# Arduino
+arduino = serial.Serial(
+    "COM5",
+    9600,
+    timeout=1
 )
 
-print("Message Équateur envoyé")
+time.sleep(2)
+
+
+while True:
+
+    ligne = arduino.readline() \
+        .decode(
+            "utf-8",
+            errors="ignore"
+        ) \
+        .strip()
+
+
+    if not ligne:
+        continue
+
+
+    try:
+
+        data = json.loads(
+            ligne
+        )
+
+
+        publish.single(
+
+            "equateur/mesures",
+
+            payload=json.dumps(
+                data
+            ),
+
+            hostname="localhost",
+
+            port=1885
+
+        )
+
+
+        print(
+            "MQTT envoyé :",
+            data
+        )
+
+
+    except:
+
+        print(
+            "Erreur :",
+            ligne
+        )
