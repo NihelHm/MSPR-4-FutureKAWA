@@ -1,32 +1,28 @@
+# ==========================================================
+# DOCKER COMPOSE - FUTUREKAWA COLOMBIE
+# Démarrage : docker compose up
+# ==========================================================
+
 services:
+
   db:
     image: postgres:15
     container_name: db_colombie
     restart: always
     environment:
-      POSTGRES_DB: bdd_colombie
-      POSTGRES_USER: user
+      POSTGRES_DB:       bdd_colombie
+      POSTGRES_USER:     user
       POSTGRES_PASSWORD: password
     ports:
       - "5434:5432"
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-
-  backend:
-    build: .
-    container_name: backend_colombie
-    restart: always
-    depends_on:
-      - db
-    environment:
-      COUNTRY_NAME: Colombie
-      DB_HOST: db
-      DB_NAME: bdd_colombie
-      DB_USER: user
-      DB_PASSWORD: password
-      DB_PORT: 5432
-    ports:
-      - "8001:8000"
+      - db_colombie_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d bdd_colombie"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   mqtt:
     image: eclipse-mosquitto:2
@@ -34,3 +30,67 @@ services:
     restart: always
     ports:
       - "1884:1883"
+
+  backend:
+    build: .
+    container_name: backend_colombie
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      COUNTRY_NAME: Colombie
+      DB_HOST:      db
+      DB_NAME:      bdd_colombie
+      DB_USER:      user
+      DB_PASSWORD:  password
+      DB_PORT:      5432
+    ports:
+      - "8001:8000"
+
+  consumer:
+    build: .
+    container_name: consumer_colombie
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    environment:
+      DB_HOST:    db
+      DB_NAME:    bdd_colombie
+      DB_USER:    user
+      DB_PASSWORD: password
+      DB_PORT:    5432
+      MQTT_HOST:  mqtt
+      MQTT_PORT:  1883
+      MQTT_TOPIC: colombie/mesures
+    command: ["python", "mqtt_consumer.py"]
+
+  alerting:
+    build: .
+    container_name: alerting_colombie  # (ou colombie / equateur)
+    restart: always
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST:        db
+      DB_NAME:        bdd_colombie      # (adapter par pays)
+      DB_USER:        user
+      DB_PASSWORD:    password
+      DB_PORT:        5432
+      CHECK_INTERVAL: 300
+      SMTP_HOST:      sandbox.smtp.mailtrap.io
+      SMTP_PORT:      587
+      SMTP_USER:      0a516754fa9be9
+      SMTP_PASSWORD:  d09cac0b66eff2
+      MANAGER_EMAIL:  test@futurekawa.com
+    command: ["python", "alerting_engine.py"]
+
+volumes:
+  db_colombie_data:

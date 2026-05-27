@@ -1,0 +1,21 @@
+# ==========================================================
+# DOCKER COMPOSE - FUTUREKAWA SIÈGE
+# Démarrage : docker compose up --build
+# Prérequis : les 3 backends pays doivent tourner
+# ==========================================================
+
+services:
+
+  siege:
+    build: .
+    container_name: backend_siege
+    restart: always
+    environment:
+      # URLs des backends pays — adapter selon votre déploiement
+      URL_BRESIL:   ${URL_BRESIL:-http://host.docker.internal:8000}
+      URL_COLOMBIE: ${URL_COLOMBIE:-http://host.docker.internal:8001}
+      URL_EQUATEUR: ${URL_EQUATEUR:-http://host.docker.internal:8002}
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

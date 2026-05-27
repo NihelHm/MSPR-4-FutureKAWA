@@ -1,50 +1,101 @@
 # ==========================================================
 # DOCKER COMPOSE - FUTUREKAWA BRÉSIL
+# Démarrage : docker compose up
 # ==========================================================
 
 services:
 
+  # ── Base de données ──────────────────────────────────────
   db:
     image: postgres:15
     container_name: db_bresil
     restart: always
-
     environment:
-      POSTGRES_DB: bdd_bresil
-      POSTGRES_USER: user
+      POSTGRES_DB:       bdd_bresil
+      POSTGRES_USER:     user
       POSTGRES_PASSWORD: password
-
     ports:
       - "5433:5432"
-
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db_bresil_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d bdd_bresil"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-
-  backend:
-    build: .
-    container_name: backend_bresil
-    restart: always
-
-    depends_on:
-      - db
-
-    environment:
-      COUNTRY_NAME: Brésil
-      DB_HOST: db
-      DB_NAME: bdd_bresil
-      DB_USER: user
-      DB_PASSWORD: password
-      DB_PORT: 5432
-
-    ports:
-      - "8000:8000"
-
-
+  # ── Broker MQTT local ────────────────────────────────────
   mqtt:
     image: eclipse-mosquitto:2
     container_name: mqtt_bresil
     restart: always
-
     ports:
       - "1883:1883"
+
+  # ── API REST Backend ─────────────────────────────────────
+  backend:
+    build: .
+    container_name: backend_bresil
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      COUNTRY_NAME: Brésil
+      DB_HOST:      db
+      DB_NAME:      bdd_bresil
+      DB_USER:      user
+      DB_PASSWORD:  password
+      DB_PORT:      5432
+    ports:
+      - "8000:8000"
+
+  # ── Consumer MQTT → BDD ──────────────────────────────────
+  consumer:
+    build: .
+    container_name: consumer_bresil
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    environment:
+      DB_HOST:    db
+      DB_NAME:    bdd_bresil
+      DB_USER:    user
+      DB_PASSWORD: password
+      DB_PORT:    5432
+      MQTT_HOST:  mqtt
+      MQTT_PORT:  1883
+      MQTT_TOPIC: bresil/mesures
+    command: ["python", "mqtt_consumer.py"]
+
+  # ── Moteur d'alerting ────────────────────────────────────
+  alerting:
+    build: .
+    container_name: alerting_bresil  # (ou colombie / equateur)
+    restart: always
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST:        db
+      DB_NAME:        bdd_bresil      # (adapter par pays)
+      DB_USER:        user
+      DB_PASSWORD:    password
+      DB_PORT:        5432
+      CHECK_INTERVAL: 300
+      SMTP_HOST:      sandbox.smtp.mailtrap.io
+      SMTP_PORT:      587
+      SMTP_USER:      0a516754fa9be9
+      SMTP_PASSWORD:  d09cac0b66eff2
+      MANAGER_EMAIL:  test@futurekawa.com
+    command: ["python", "alerting_engine.py"]
+
+volumes:
+  db_bresil_data:
