@@ -26,6 +26,7 @@ from typing import Optional
 import psycopg2
 import psycopg2.extras
 import os
+from datetime import date
 
 
 # ==========================================================
@@ -380,6 +381,171 @@ def delete_item(table: str, item_id: int):
         "message": f"{table} supprimé avec succès"
     }
 
+# ==========================================================
+# SEUILS METIER PAR PAYS
+# ==========================================================
+
+SEUILS = {
+    "Brésil": {
+        "temperature": 29,
+        "humidite": 55
+    },
+    "Équateur": {
+        "temperature": 31,
+        "humidite": 60
+    },
+    "Colombie": {
+        "temperature": 26,
+        "humidite": 80
+    }
+}
+
+TOLERANCE_TEMPERATURE = 3
+TOLERANCE_HUMIDITE = 2
+
+
+def get_pays_local():
+    pays = get_all("pays")
+
+    if not pays:
+        raise HTTPException(status_code=404, detail="Aucun pays trouvé en base")
+
+    return pays[0]["nom"]
+
+
+def get_lot_pays(lot_id: int):
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cursor.execute("""
+        SELECT p.nom AS pays
+        FROM lot l
+        JOIN site s ON l.site_id = s.id
+        JOIN pays p ON s.pays_id = p.id
+        WHERE l.id = %s;
+    """, (lot_id,))
+
+    data = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    if not data:
+        raise HTTPException(status_code=404, detail="Lot introuvable")
+
+    return data["pays"]
+
+
+def est_hors_plage(pays: str, type_mesure: str, valeur: float):
+    seuil = SEUILS[pays][type_mesure]
+
+    if type_mesure == "temperature":
+        tolerance = TOLERANCE_TEMPERATURE
+    else:
+        tolerance = TOLERANCE_HUMIDITE
+
+    minimum = seuil - tolerance
+    maximum = seuil + tolerance
+
+    return valeur < minimum or valeur > maximum, minimum, maximum
+
+
+def creer_alerte_si_hors_plage(type_mesure: str, valeur: float, capteur_id: int):
+    pays = get_pays_local()
+
+    hors_plage, minimum, maximum = est_hors_plage(pays, type_mesure, valeur)
+
+    if hors_plage:
+        return create_item("alerte", {
+            "type": type_mesure,
+            "message": f"{type_mesure} hors plage acceptable : {valeur} pour une plage attendue entre {minimum} et {maximum}",
+            "valeur": valeur,
+            "seuil": maximum,
+            "capteur_id": capteur_id,
+            "lot_id": None
+        })
+
+    return None
+
+
+def calculer_statut_lot(lot_id: int):
+    pays = get_lot_pays(lot_id)
+
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cursor.execute("""
+        SELECT
+            l.id,
+            l.date_stockage,
+
+            (
+                SELECT t.valeur
+                FROM temperature t
+                JOIN capteur c ON t.capteur_id = c.id
+                WHERE c.site_id = l.site_id
+                ORDER BY t.date_mesure DESC
+                LIMIT 1
+            ) AS derniere_temperature,
+
+            (
+                SELECT h.valeur
+                FROM humidite h
+                JOIN capteur c ON h.capteur_id = c.id
+                WHERE c.site_id = l.site_id
+                ORDER BY h.date_mesure DESC
+                LIMIT 1
+            ) AS derniere_humidite
+
+        FROM lot l
+        WHERE l.id = %s;
+    """, (lot_id,))
+
+    lot = cursor.fetchone()
+
+    if not lot:
+        cursor.close()
+        conn.close()
+        raise HTTPException(status_code=404, detail="Lot introuvable")
+
+    statut = "conforme"
+
+    if lot["date_stockage"] is not None:
+        anciennete = (date.today() - lot["date_stockage"]).days
+
+        if anciennete > 365:
+            statut = "périmé"
+
+    if statut != "périmé":
+        temperature = lot["derniere_temperature"]
+        humidite = lot["derniere_humidite"]
+
+        if temperature is not None:
+            hors_plage_temp, _, _ = est_hors_plage(pays, "temperature", temperature)
+
+            if hors_plage_temp:
+                statut = "en alerte"
+
+        if humidite is not None:
+            hors_plage_hum, _, _ = est_hors_plage(pays, "humidite", humidite)
+
+            if hors_plage_hum:
+                statut = "en alerte"
+
+    cursor.execute("""
+        UPDATE lot
+        SET statut = %s
+        WHERE id = %s
+        RETURNING *;
+    """, (statut, lot_id))
+
+    lot_updated = cursor.fetchone()
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return lot_updated
 
 # ==========================================================
 # ROUTE RACINE
@@ -490,6 +656,18 @@ def update_lot(lot_id: int, lot: LotUpdate):
 def delete_lot(lot_id: int):
 
     return delete_item("lot", lot_id)
+# ==========================================================
+# RECALCUL STATUT LOT
+# ==========================================================
+
+@app.put("/lots/{lot_id}/statut")
+def recalculer_statut_lot(lot_id: int):
+    lot = calculer_statut_lot(lot_id)
+
+    return {
+        "message": "Statut du lot recalculé avec succès",
+        "lot": lot
+    }
 
 
 # ==========================================================
