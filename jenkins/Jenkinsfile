@@ -1,0 +1,35 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Build Bresil') {
+            steps {
+                dir('bresil') {
+                    bat 'docker compose build'
+                }
+            }
+        }
+
+        stage('Build Colombie') {
+            steps {
+                dir('colombie') {
+                    bat 'docker compose build'
+                }
+            }
+        }
+
+        stage('Build Equateur') {
+            steps {
+                dir('equateur') {
+                    bat 'docker compose build'
+                }
+            }
+        }
+
+        stage('Check Docker') {
+            steps {
+                bat 'docker ps -a'
+            }
+        }
+    }
+}
