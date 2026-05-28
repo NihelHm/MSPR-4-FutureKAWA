@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:15
+    container_name: db_equateur
+    restart: always
+    environment:
+      POSTGRES_DB: bdd_equateur
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend:
+    build: .
+    container_name: backend_equateur
+    restart: always
+    depends_on:
+      - db
+    environment:
+      COUNTRY_NAME: Équateur
+      DB_HOST: db
+      DB_NAME: bdd_equateur
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_PORT: 5432
+    ports:
+      - "8002:8000"
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: mqtt_equateur
+    restart: always
+    ports:
+      - "1885:1883"
