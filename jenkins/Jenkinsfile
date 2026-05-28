@@ -2,10 +2,11 @@ pipeline {
     agent any
 
     stages {
+
         stage('Build Bresil') {
             steps {
                 dir('bresil') {
-                    bat 'docker compose build'
+                    sh 'docker compose build'
                 }
             }
         }
@@ -13,7 +14,7 @@ pipeline {
         stage('Build Colombie') {
             steps {
                 dir('colombie') {
-                    bat 'docker compose build'
+                    sh 'docker compose build'
                 }
             }
         }
@@ -21,14 +22,22 @@ pipeline {
         stage('Build Equateur') {
             steps {
                 dir('equateur') {
-                    bat 'docker compose build'
+                    sh 'docker compose build'
+                }
+            }
+        }
+
+        stage('Build Siege') {
+            steps {
+                dir('siege') {
+                    sh 'docker compose build'
                 }
             }
         }
 
         stage('Check Docker') {
             steps {
-                bat 'docker ps -a'
+                sh 'docker ps -a'
             }
         }
     }
