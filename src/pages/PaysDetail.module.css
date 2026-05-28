@@ -1,0 +1,56 @@
+.page {
+  padding: 36px 40px;
+  max-width: 1200px;
+}
+
+.condBanner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 18px;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+
+.condLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.condVal {
+  color: var(--text-secondary);
+}
+
+.condSep {
+  color: var(--border);
+}
+
+.charts {
+  margin-top: 28px;
+  margin-bottom: 28px;
+}
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 28px;
+}
+
+@media (max-width: 900px) {
+  .page { padding: 20px; }
+  .chartsGrid { grid-template-columns: 1fr; }
+  .twoCol { grid-template-columns: 1fr; }
+}
