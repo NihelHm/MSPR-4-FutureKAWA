@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     stages {
-
         stage('Checkout') {
             steps {
                 echo 'Code récupéré depuis GitHub'
@@ -16,19 +15,20 @@ pipeline {
                 sh 'ls -la colombie'
                 sh 'ls -la equateur'
                 sh 'ls -la siege'
+                sh 'ls -la jenkins'
             }
         }
 
-        stage('Check Python files') {
-            steps {
-                sh 'python3 --version || python --version'
-                sh 'find . -name "*.py"'
-            }
-        }
-
-        stage('Validate Docker compose files') {
+        stage('Validate compose files') {
             steps {
                 sh 'find . -name "docker-compose.yml"'
+            }
+        }
+
+        stage('Archive project info') {
+            steps {
+                sh 'find . -maxdepth 2 -type f > project_files.txt'
+                archiveArtifacts artifacts: 'project_files.txt', fingerprint: true
             }
         }
     }
