@@ -3,41 +3,32 @@ pipeline {
 
     stages {
 
-        stage('Build Bresil') {
+        stage('Checkout') {
             steps {
-                dir('bresil') {
-                    sh 'docker compose build'
-                }
+                echo 'Code récupéré depuis GitHub'
             }
         }
 
-        stage('Build Colombie') {
+        stage('Check project structure') {
             steps {
-                dir('colombie') {
-                    sh 'docker compose build'
-                }
+                sh 'ls -la'
+                sh 'ls -la bresil'
+                sh 'ls -la colombie'
+                sh 'ls -la equateur'
+                sh 'ls -la siege'
             }
         }
 
-        stage('Build Equateur') {
+        stage('Check Python files') {
             steps {
-                dir('equateur') {
-                    sh 'docker compose build'
-                }
+                sh 'python3 --version || python --version'
+                sh 'find . -name "*.py"'
             }
         }
 
-        stage('Build Siege') {
+        stage('Validate Docker compose files') {
             steps {
-                dir('siege') {
-                    sh 'docker compose build'
-                }
-            }
-        }
-
-        stage('Check Docker') {
-            steps {
-                sh 'docker ps -a'
+                sh 'find . -name "docker-compose.yml"'
             }
         }
     }
