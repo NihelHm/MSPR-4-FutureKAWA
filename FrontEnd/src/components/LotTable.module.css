@@ -1,0 +1,122 @@
+.wrapper {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.table thead th {
+  background: var(--table-head);
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.row {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row:hover {
+  background: var(--hover);
+}
+
+.row td {
+  padding: 13px 16px;
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.ref {
+  font-family: var(--font-mono);
+  font-size: 12.5px !important;
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+.pays {
+  text-transform: capitalize;
+  font-weight: 500;
+  color: var(--text-primary) !important;
+}
+
+.date {
+  font-variant-numeric: tabular-nums;
+}
+
+.site {
+  color: var(--text-muted) !important;
+  font-size: 12px !important;
+}
+
+.arrow {
+  color: var(--text-muted) !important;
+  font-size: 16px !important;
+  text-align: right !important;
+  padding-right: 18px !important;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.row:hover .arrow {
+  opacity: 1;
+}
+
+.statut {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ageBadge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.ageBadge.ok {
+  background: #1B4332;
+  color: #74C69D;
+}
+
+.ageBadge.warning {
+  background: #4A3000;
+  color: #FFA726;
+}
+
+.ageBadge.danger {
+  background: #3D0000;
+  color: #FF4D4D;
+}
+
+.ageMuted {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}

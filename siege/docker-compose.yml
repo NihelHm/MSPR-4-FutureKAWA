@@ -16,6 +16,6 @@ services:
       URL_COLOMBIE: ${URL_COLOMBIE:-http://host.docker.internal:8001}
       URL_EQUATEUR: ${URL_EQUATEUR:-http://host.docker.internal:8002}
     ports:
-      - "8080:8080"
+      - "8003:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"

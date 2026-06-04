@@ -1,0 +1,368 @@
+{
+  "info": {
+    "name": "FutureKawa API — Tests Ryma (Phase C)",
+    "description": "Collection Postman — Tests API Brésil backend.\nCouvre : POST /lots, GET /lots, GET /lots/{id}, GET /lots/{id}/measures.\nAuteur : Ryma — Tâche C5 Tests.",
+    "_postman_id": "futurekawa-bresil-ryma-tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "description": "URL du backend Brésil (docker-compose port 8000)"
+    },
+    {
+      "key": "lot_id_cree",
+      "value": "",
+      "description": "ID du lot créé dynamiquement par POST /lots"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔴 Sanity Check — API en ligne",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/",
+        "description": "Vérifie que l'API répond correctement."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function() {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Message API opérationnelle', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.message).to.include('opérationnelle');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 POST /lots — Créer un lot conforme",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/lots",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reference\": \"LOT-BR-TEST-001\",\n  \"date_reception\": \"2026-05-01\",\n  \"date_stockage\": \"2026-05-01\",\n  \"statut\": \"stocké\",\n  \"site_id\": 1\n}"
+        },
+        "description": "Crée un nouveau lot avec une date récente → statut attendu : conforme"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201 — Lot créé', function() {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('Réponse contient lot.id', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.lot).to.have.property('id');",
+              "  // Sauvegarder l'ID pour les tests suivants",
+              "  pm.collectionVariables.set('lot_id_cree', json.lot.id);",
+              "});",
+              "pm.test('Référence correcte', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.lot.reference).to.eql('LOT-BR-TEST-001');",
+              "});",
+              "pm.test('Message de succès', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.message).to.include('succès');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 POST /lots — Créer un lot périmé (> 365j)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/lots",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reference\": \"LOT-BR-PERIME-001\",\n  \"date_reception\": \"2024-01-01\",\n  \"date_stockage\": \"2024-01-01\",\n  \"statut\": \"stocké\",\n  \"site_id\": 1\n}"
+        },
+        "description": "Lot avec date_stockage en 2024 → doit être périmé (>365j)"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function() {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('Statut calculé = perime', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.lot.statut_calcule).to.eql('perime');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 POST /lots — Référence manquante (400)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/lots",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date_stockage\": \"2026-05-01\",\n  \"site_id\": 1\n}"
+        },
+        "description": "Champ reference manquant → 422 Unprocessable Entity"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 422 — Validation error', function() {",
+              "  pm.response.to.have.status(422);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 POST /lots — site_id inexistant (500 ou 404)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/lots",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reference\": \"LOT-INVALID\",\n  \"date_stockage\": \"2026-05-01\",\n  \"statut\": \"stocké\",\n  \"site_id\": 9999\n}"
+        },
+        "description": "site_id inexistant → contrainte FK PostgreSQL → erreur serveur"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Erreur contrainte FK (4xx ou 5xx)', function() {",
+              "  pm.expect(pm.response.code).to.be.oneOf([400, 404, 422, 500]);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📋 GET /lots — Liste des lots (FIFO)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/lots",
+        "description": "Liste tous les lots triés par date_stockage ASC (ordre FIFO)"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function() {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Réponse contient un tableau lots', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('lots');",
+              "  pm.expect(json.lots).to.be.an('array');",
+              "});",
+              "pm.test('Au moins 1 lot en base', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.lots.length).to.be.greaterThan(0);",
+              "});",
+              "pm.test('Lots triés par date_stockage ASC (FIFO)', function() {",
+              "  const lots = pm.response.json().lots;",
+              "  if (lots.length > 1) {",
+              "    for (let i = 1; i < lots.length; i++) {",
+              "      const d1 = new Date(lots[i-1].date_stockage);",
+              "      const d2 = new Date(lots[i].date_stockage);",
+              "      pm.expect(d1 <= d2).to.be.true;",
+              "    }",
+              "  }",
+              "});",
+              "pm.test('Chaque lot a un statut_calcule', function() {",
+              "  const lots = pm.response.json().lots;",
+              "  lots.forEach(lot => {",
+              "    pm.expect(lot).to.have.property('statut_calcule');",
+              "    pm.expect(['conforme','en_alerte','perime']).to.include(lot.statut_calcule);",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔍 GET /lots/{id} — Détail lot créé",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/lots/{{lot_id_cree}}",
+        "description": "Détail du lot créé précédemment via POST"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function() {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Réponse contient lot', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('lot');",
+              "});",
+              "pm.test('ID correspond', function() {",
+              "  const json = pm.response.json();",
+              "  const expected = parseInt(pm.collectionVariables.get('lot_id_cree'));",
+              "  pm.expect(json.lot.id).to.eql(expected);",
+              "});",
+              "pm.test('Statut_calcule présent et valide', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(['conforme','en_alerte','perime']).to.include(json.lot.statut_calcule);",
+              "});",
+              "pm.test('age_jours présent', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.lot).to.have.property('age_jours');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔍 GET /lots/9999 — Lot inexistant (404)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/lots/9999",
+        "description": "Lot avec ID inexistant → 404"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 404 — Lot introuvable', function() {",
+              "  pm.response.to.have.status(404);",
+              "});",
+              "pm.test('Message detail présent', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('detail');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 GET /lots/{id}/measures — Mesures consolidées",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/lots/1/measures",
+        "description": "Retourne les mesures temp + humidité du lot 1 (lot initial init.sql)"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function() {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Réponse contient temperatures', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('temperatures');",
+              "  pm.expect(json.temperatures).to.be.an('array');",
+              "});",
+              "pm.test('Réponse contient humidites', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('humidites');",
+              "  pm.expect(json.humidites).to.be.an('array');",
+              "});",
+              "pm.test('lot_id présent', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.lot_id).to.eql(1);",
+              "});",
+              "pm.test('statut_calcule présent', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('statut_calcule');",
+              "});",
+              "pm.test('Chaque température a valeur + date_mesure', function() {",
+              "  const json = pm.response.json();",
+              "  json.temperatures.forEach(t => {",
+              "    pm.expect(t).to.have.property('valeur');",
+              "    pm.expect(t).to.have.property('date_mesure');",
+              "  });",
+              "});",
+              "pm.test('Chaque humidité a valeur + date_mesure', function() {",
+              "  const json = pm.response.json();",
+              "  json.humidites.forEach(h => {",
+              "    pm.expect(h).to.have.property('valeur');",
+              "    pm.expect(h).to.have.property('date_mesure');",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 GET /lots/9999/measures — Lot inexistant (404)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/lots/9999/measures",
+        "description": "Mesures d'un lot inexistant → 404"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 404', function() {",
+              "  pm.response.to.have.status(404);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 GET /lots/{lot_id_cree}/measures — Mesures lot créé",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/lots/{{lot_id_cree}}/measures",
+        "description": "Mesures du lot créé dynamiquement — peut être vide (aucune mesure IoT encore)"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function() {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Tableaux temperatures et humidites présents', function() {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.temperatures).to.be.an('array');",
+              "  pm.expect(json.humidites).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

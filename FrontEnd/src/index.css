@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+/* ========== THÈME SOMBRE (défaut) ========== */
+:root,
+[data-theme="dark"] {
+  --bg: #0E0E0E;
+  --sidebar-bg: #111111;
+  --card-bg: #161616;
+  --table-head: #141414;
+  --border: #252525;
+  --border-hover: #383838;
+  --hover: #1C1C1C;
+  --text-primary: #F0EDE8;
+  --text-secondary: #9A9490;
+  --text-muted: #575350;
+  --accent: #7EB98A;
+  --accent-dim: #1A2E1E;
+  --success: #74C69D;
+  --success-dim: #1B4332;
+  --warning: #FFA726;
+  --warning-dim: #3A2000;
+  --danger: #FF6B6B;
+  --danger-dim: #4D1010;
+  --danger-bg: #1A0808;
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'Courier New', monospace;
+}
+
+/* ========== THÈME CLAIR CAFÉ ========== */
+[data-theme="light"] {
+  --bg: #F5EFE6;
+  --sidebar-bg: #EDE0D0;
+  --card-bg: #FFF8F0;
+  --table-head: #F0E8DC;
+  --border: #D4C4B0;
+  --border-hover: #B8A090;
+  --hover: #EDE0D0;
+  --text-primary: #2C1810;
+  --text-secondary: #6B4C3B;
+  --text-muted: #A08060;
+  --accent: #5C8A4A;
+  --accent-dim: #D8EDD0;
+  --success: #4A8A5A;
+  --success-dim: #C8E8D0;
+  --warning: #C87020;
+  --warning-dim: #F8E0C0;
+  --danger: #C84040;
+  --danger-dim: #F8D0D0;
+  --danger-bg: #FDF0F0;
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'Courier New', monospace;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text-primary);
+  line-height: 1.5;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: var(--font-body); }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+::selection { background: var(--accent-dim); color: var(--accent); }

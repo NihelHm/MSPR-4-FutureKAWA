@@ -19,6 +19,21 @@ pipeline {
             }
         }
 
+        stage('Check tests files') {
+            steps {
+                sh 'ls -la Tests'
+                sh 'ls -la Tests/bresil'
+                sh 'ls -la Tests/colombie'
+                sh 'ls -la Tests/equateur'
+
+                sh 'test -f Tests/bresil/test_statut_lot.py'
+                sh 'test -f Tests/colombie/test_statut_lot.py'
+                sh 'test -f Tests/equateur/test_statut_lot.py'
+
+                echo 'Tests présents pour les 3 pays'
+            }
+        }
+
         stage('Validate compose files') {
             steps {
                 sh 'find . -name "docker-compose.yml"'
