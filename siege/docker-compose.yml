@@ -1,17 +1,45 @@
 # ==========================================================
 # DOCKER COMPOSE - FUTUREKAWA SIÈGE
 # Démarrage : docker compose up --build
-# Prérequis : les 3 backends pays doivent tourner
 # ==========================================================
 
 services:
 
+  # ── Base de données siège ────────────────────────────────
+  db_siege:
+    image: postgres:15
+    container_name: db_siege
+    restart: always
+    environment:
+      POSTGRES_DB:       bdd_siege
+      POSTGRES_USER:     user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5436:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db_siege_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d bdd_siege"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Backend central siège ────────────────────────────────
   siege:
     build: .
     container_name: backend_siege
     restart: always
+    depends_on:
+      db_siege:
+        condition: service_healthy
     environment:
-      # URLs des backends pays — adapter selon votre déploiement
+      DB_HOST:      db_siege
+      DB_NAME:      bdd_siege
+      DB_USER:      user
+      DB_PASSWORD:  password
+      DB_PORT:      5432
+      JWT_SECRET:   futurekawa_secret_2026
       URL_BRESIL:   ${URL_BRESIL:-http://host.docker.internal:8000}
       URL_COLOMBIE: ${URL_COLOMBIE:-http://host.docker.internal:8001}
       URL_EQUATEUR: ${URL_EQUATEUR:-http://host.docker.internal:8002}
@@ -19,3 +47,6 @@ services:
       - "8080:8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+volumes:
+  db_siege_data:
