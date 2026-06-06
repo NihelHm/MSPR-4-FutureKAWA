@@ -6,7 +6,16 @@ CDC §IV.2 : consolider stocks, mesures historiques, alertes.
 
 import os
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+import bcrypt
+import jwt
+from auth_routes import (
+    LoginRequest, UtilisateurCreate, UtilisateurUpdate,
+    login, list_utilisateurs_public,
+    list_utilisateurs_admin, create_utilisateur_admin,
+    update_utilisateur_admin, delete_utilisateur_admin,
+    verifier_admin
+)
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
@@ -212,3 +221,37 @@ async def get_humidites_par_pays(pays: str):
     if resultat["statut"] != "ok":
         raise HTTPException(status_code=503, detail=f"Backend {pays} injoignable")
     return resultat["data"]
+
+
+# ==========================================================
+# AUTHENTIFICATION
+# ==========================================================
+
+@app.post("/login")
+def route_login(data: LoginRequest):
+    return login(data)
+
+
+@app.get("/utilisateurs")
+def route_utilisateurs():
+    return list_utilisateurs_public()
+
+
+@app.get("/admin/utilisateurs")
+def route_admin_list(payload = Depends(verifier_admin)):
+    return list_utilisateurs_admin(payload)
+
+
+@app.post("/admin/utilisateurs")
+def route_admin_create(data: UtilisateurCreate, payload = Depends(verifier_admin)):
+    return create_utilisateur_admin(data, payload)
+
+
+@app.put("/admin/utilisateurs/{utilisateur_id}")
+def route_admin_update(utilisateur_id: int, data: UtilisateurUpdate, payload = Depends(verifier_admin)):
+    return update_utilisateur_admin(utilisateur_id, data, payload)
+
+
+@app.delete("/admin/utilisateurs/{utilisateur_id}")
+def route_admin_delete(utilisateur_id: int, payload = Depends(verifier_admin)):
+    return delete_utilisateur_admin(utilisateur_id, payload)
