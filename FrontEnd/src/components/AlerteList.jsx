@@ -24,23 +24,18 @@ export default function AlerteList({ alertes, showPays = false, limit }) {
         const paysConfig = alerte._pays ? PAYS_CONFIG[alerte._pays] : null;
 
         return (
-          <div key={alerte.id ?? idx} className={styles.item}>
+          <div key={`${alerte._pays ?? "x"}-${alerte.id ?? idx}`} className={styles.item}>
             <div className={styles.itemIcon}>{typeConfig.icon}</div>
             <div className={styles.itemBody}>
               <div className={styles.itemHeader}>
                 <span className={styles.itemType}>{typeConfig.label}</span>
                 {showPays && paysConfig && (
-                  <span className={styles.itemPays}>
-                    {paysConfig.flag} {paysConfig.nom}
-                  </span>
+                  <span className={styles.itemPays}>{paysConfig.flag} {paysConfig.nom}</span>
                 )}
                 <span className={styles.itemDate}>
                   {alerte.date_alerte
                     ? new Date(alerte.date_alerte).toLocaleString("fr-FR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
+                        day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
                       })
                     : "—"}
                 </span>
@@ -49,9 +44,7 @@ export default function AlerteList({ alertes, showPays = false, limit }) {
               {alerte.valeur !== null && alerte.valeur !== undefined && (
                 <div className={styles.itemValues}>
                   <span>Valeur : <strong>{alerte.valeur}</strong></span>
-                  {alerte.seuil && (
-                    <span>Seuil : <strong>{alerte.seuil}</strong></span>
-                  )}
+                  {alerte.seuil && <span>Seuil : <strong>{alerte.seuil}</strong></span>}
                 </div>
               )}
             </div>

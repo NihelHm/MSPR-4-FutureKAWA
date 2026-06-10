@@ -5,25 +5,25 @@
 import { useState, useEffect, useCallback } from "react";
 import { PAYS_API } from "../services/api";
 
-export function useLots(paysId) {
+export function useLots(paysId, siteId = null) {
   const [lots, setLots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const fetchLots = useCallback(async () => {
-    if (!paysId) return;
+    if (!paysId || !PAYS_API[paysId]) return;
     setLoading(true);
     setError(null);
     try {
       const api = PAYS_API[paysId];
-      const data = await api.getLots();
+      const data = siteId ? await api.getLotsBySite(siteId) : await api.getLots();
       setLots(data || []);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [paysId]);
+  }, [paysId, siteId]);
 
   useEffect(() => {
     fetchLots();
@@ -55,11 +55,12 @@ export function useLot(paysId, lotId) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!paysId || !lotId) return;
+    if (!paysId || !lotId || !PAYS_API[paysId]) return;
     setLoading(true);
+    setError(null);
     PAYS_API[paysId]
       .getLot(lotId)
-      .then((data) => setLot(data))
+      .then(setLot)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [paysId, lotId]);

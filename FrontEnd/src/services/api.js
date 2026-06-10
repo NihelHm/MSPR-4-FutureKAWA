@@ -1,101 +1,153 @@
 // ==========================================================
-// SERVICE API - FUTUREKAWA
+// SERVICE API — FUTUREKAWA
+// ----------------------------------------------------------
+// - authAPI / adminAPI  → backend central SIÈGE (auth JWT + utilisateurs)
+// - PAYS_API            → backends locaux par pays (sites, lots, capteurs, mesures)
+// - siegeAPI            → consolidation multi-pays côté client
+//
+// HIÉRARCHIE MÉTIER : pays → sites → lots → capteurs → mesures
+//   * un capteur appartient à un lot via `capteur.lot_id`
+//   * un lot appartient à un site via `lot.site_id`
+//   * une mesure appartient à un capteur via `mesure.capteur_id`
 // ==========================================================
-// Ce service centralise tous les appels HTTP vers les
-// backends locaux de chaque pays.
+
+import { PAYS_CONFIG, SIEGE_URL } from "../constants/pays";
+
+// ----------------------------------------------------------
+// HELPERS HTTP
+// ----------------------------------------------------------
+
+function authHeaders() {
+  const token = localStorage.getItem("fk_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function handle(res, endpoint) {
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = body.detail;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`${detail} (${endpoint})`);
+  }
+  // 204 No Content
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+async function fetchAPI(baseUrl, endpoint, withAuth = false) {
+  const res = await fetch(`${baseUrl}${endpoint}`, {
+    headers: { ...(withAuth ? authHeaders() : {}) },
+  });
+  return handle(res, endpoint);
+}
+
+async function sendAPI(method, baseUrl, endpoint, body, withAuth = false) {
+  const res = await fetch(`${baseUrl}${endpoint}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(withAuth ? authHeaders() : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  return handle(res, endpoint);
+}
+
+// ==========================================================
+// AUTHENTIFICATION (backend siège)
 // ==========================================================
 
-import { PAYS_CONFIG } from "../constants/pays";
+export const authAPI = {
+  // POST /login → { message, token, utilisateur }
+  login: (email, password) => sendAPI("POST", SIEGE_URL, "/login", { email, password }),
+  // GET /utilisateurs → utilisateurs non-admin (public)
+  listPublic: () => fetchAPI(SIEGE_URL, "/utilisateurs").then((r) => r.utilisateurs),
+};
 
-// ----------------------------------------------------------
-// HELPER
-// ----------------------------------------------------------
+// ==========================================================
+// ADMINISTRATION DES UTILISATEURS (backend siège, JWT admin requis)
+// ==========================================================
 
-async function fetchAPI(baseUrl, endpoint) {
-  const res = await fetch(`${baseUrl}${endpoint}`);
-  if (!res.ok) throw new Error(`Erreur API ${res.status} sur ${endpoint}`);
-  return res.json();
-}
+export const adminAPI = {
+  // GET /admin/utilisateurs
+  listUsers: () => fetchAPI(SIEGE_URL, "/admin/utilisateurs", true).then((r) => r.utilisateurs),
+  // POST /admin/utilisateurs
+  createUser: (data) => sendAPI("POST", SIEGE_URL, "/admin/utilisateurs", data, true),
+  // PUT /admin/utilisateurs/{id}
+  updateUser: (id, data) => sendAPI("PUT", SIEGE_URL, `/admin/utilisateurs/${id}`, data, true),
+  // DELETE /admin/utilisateurs/{id}
+  deleteUser: (id) => sendAPI("DELETE", SIEGE_URL, `/admin/utilisateurs/${id}`, undefined, true),
+  // Raccourci : bascule du flag is_admin
+  setAdmin: (id, isAdmin) =>
+    sendAPI("PUT", SIEGE_URL, `/admin/utilisateurs/${id}`, { is_admin: isAdmin }, true),
+};
 
-async function postAPI(baseUrl, endpoint, body) {
-  const res = await fetch(`${baseUrl}${endpoint}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Erreur POST ${res.status} sur ${endpoint}`);
-  return res.json();
-}
-
-async function putAPI(baseUrl, endpoint, body) {
-  const res = await fetch(`${baseUrl}${endpoint}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Erreur PUT ${res.status} sur ${endpoint}`);
-  return res.json();
-}
-
-async function deleteAPI(baseUrl, endpoint) {
-  const res = await fetch(`${baseUrl}${endpoint}`, { method: "DELETE" });
-  if (!res.ok) throw new Error(`Erreur DELETE ${res.status} sur ${endpoint}`);
-  return res.json();
-}
-
-// ----------------------------------------------------------
-// FACTORY PAR PAYS
-// ----------------------------------------------------------
+// ==========================================================
+// FACTORY API PAR PAYS (backend local)
+// ==========================================================
 
 function createPaysAPI(paysId) {
   const config = PAYS_CONFIG[paysId];
   if (!config) throw new Error(`Pays inconnu : ${paysId}`);
   const { baseUrl } = config;
 
-  return {
+  const api = {
     // SANTÉ
     ping: () => fetchAPI(baseUrl, "/"),
 
-    // SITES
-    getSites: () => fetchAPI(baseUrl, "/sites").then((r) => r.sites),
+    // SITES (un pays → plusieurs sites)
+    getSites: () => fetchAPI(baseUrl, "/sites").then((r) => r.sites || []),
     getSite: (id) => fetchAPI(baseUrl, `/sites/${id}`).then((r) => r.site),
-    createSite: (data) => postAPI(baseUrl, "/sites", data),
-    updateSite: (id, data) => putAPI(baseUrl, `/sites/${id}`, data),
-    deleteSite: (id) => deleteAPI(baseUrl, `/sites/${id}`),
+    createSite: (data) => sendAPI("POST", baseUrl, "/sites", data),
+    updateSite: (id, data) => sendAPI("PUT", baseUrl, `/sites/${id}`, data),
+    deleteSite: (id) => sendAPI("DELETE", baseUrl, `/sites/${id}`),
 
-    // LOTS
-    getLots: () => fetchAPI(baseUrl, "/lots").then((r) => r.lots),
+    // LOTS (un site → plusieurs lots)
+    getLots: () => fetchAPI(baseUrl, "/lots").then((r) => r.lots || []),
     getLot: (id) => fetchAPI(baseUrl, `/lots/${id}`).then((r) => r.lot),
-    createLot: (data) => postAPI(baseUrl, "/lots", data),
-    updateLot: (id, data) => putAPI(baseUrl, `/lots/${id}`, data),
-    deleteLot: (id) => deleteAPI(baseUrl, `/lots/${id}`),
+    getLotsBySite: async (siteId) => {
+      const lots = await api.getLots();
+      return lots.filter((l) => String(l.site_id) === String(siteId));
+    },
+    createLot: (data) => sendAPI("POST", baseUrl, "/lots", data),
+    updateLot: (id, data) => sendAPI("PUT", baseUrl, `/lots/${id}`, data),
+    deleteLot: (id) => sendAPI("DELETE", baseUrl, `/lots/${id}`),
 
-    // CAPTEURS
-    getCapteurs: () => fetchAPI(baseUrl, "/capteurs").then((r) => r.capteurs),
+    // CAPTEURS (un lot → plusieurs capteurs ; capteur.lot_id)
+    getCapteurs: () => fetchAPI(baseUrl, "/capteurs").then((r) => r.capteurs || []),
     getCapteur: (id) => fetchAPI(baseUrl, `/capteurs/${id}`).then((r) => r.capteur),
-    createCapteur: (data) => postAPI(baseUrl, "/capteurs", data),
-    updateCapteur: (id, data) => putAPI(baseUrl, `/capteurs/${id}`, data),
-    deleteCapteur: (id) => deleteAPI(baseUrl, `/capteurs/${id}`),
+    getCapteursByLot: async (lotId) => {
+      const capteurs = await api.getCapteurs();
+      return capteurs.filter((c) => String(c.lot_id) === String(lotId));
+    },
+    getCapteursBySite: async (siteId) => {
+      const capteurs = await api.getCapteurs();
+      return capteurs.filter((c) => String(c.site_id) === String(siteId));
+    },
+    createCapteur: (data) => sendAPI("POST", baseUrl, "/capteurs", data),
+    updateCapteur: (id, data) => sendAPI("PUT", baseUrl, `/capteurs/${id}`, data),
+    deleteCapteur: (id) => sendAPI("DELETE", baseUrl, `/capteurs/${id}`),
 
-    // TEMPÉRATURES
-    getTemperatures: () => fetchAPI(baseUrl, "/temperature").then((r) => r.temperature),
-    getTemperature: (id) => fetchAPI(baseUrl, `/temperature/${id}`).then((r) => r.temperature),
+    // Lier / délier un capteur à un lot (met à jour capteur.lot_id)
+    linkCapteurToLot: (capteurId, lotId) => api.updateCapteur(capteurId, { lot_id: lotId }),
+    unlinkCapteur: (capteurId) => api.updateCapteur(capteurId, { lot_id: null }),
 
-    // HUMIDITÉS
-    getHumidites: () => fetchAPI(baseUrl, "/humidite").then((r) => r.humidite),
-    getHumidite: (id) => fetchAPI(baseUrl, `/humidite/${id}`).then((r) => r.humidite),
+    // MESURES (une mesure → un capteur via capteur_id)
+    getTemperatures: () => fetchAPI(baseUrl, "/temperature").then((r) => r.temperature || []),
+    getHumidites: () => fetchAPI(baseUrl, "/humidite").then((r) => r.humidite || []),
 
     // ALERTES
-    getAlertes: () => fetchAPI(baseUrl, "/alertes").then((r) => r.alertes),
+    getAlertes: () => fetchAPI(baseUrl, "/alertes").then((r) => r.alertes || []),
     getAlerte: (id) => fetchAPI(baseUrl, `/alertes/${id}`).then((r) => r.alerte),
-    createAlerte: (data) => postAPI(baseUrl, "/alertes", data),
-    deleteAlerte: (id) => deleteAPI(baseUrl, `/alertes/${id}`),
+    deleteAlerte: (id) => sendAPI("DELETE", baseUrl, `/alertes/${id}`),
   };
-}
 
-// ----------------------------------------------------------
-// INSTANCES PAR PAYS
-// ----------------------------------------------------------
+  return api;
+}
 
 export const bresilAPI = createPaysAPI("bresil");
 export const equateurAPI = createPaysAPI("equateur");
@@ -108,71 +160,61 @@ export const PAYS_API = {
 };
 
 // ----------------------------------------------------------
-// CONSOLIDATION SIÈGE (agrège les 3 pays)
+// Helpers de filtrage des mesures par capteur (pour un lot)
 // ----------------------------------------------------------
+export function filtrerMesuresParCapteurs(mesures, capteurIds) {
+  const ids = new Set(capteurIds.map(String));
+  return (mesures || []).filter((m) => ids.has(String(m.capteur_id)));
+}
 
-export const siegeAPI = {
-  getAllLots: async () => {
+// ==========================================================
+// CONSOLIDATION SIÈGE (agrège les pays accessibles côté client)
+// ==========================================================
+
+function buildSiegeAPI(paysIds = Object.keys(PAYS_API)) {
+  const entries = paysIds
+    .filter((id) => PAYS_API[id])
+    .map((id) => [id, PAYS_API[id]]);
+
+  const collect = async (fn) => {
     const results = await Promise.allSettled(
-      Object.entries(PAYS_API).map(async ([paysId, api]) => {
-        const lots = await api.getLots();
-        return lots.map((lot) => ({ ...lot, _pays: paysId }));
+      entries.map(async ([paysId, api]) => {
+        const data = await fn(api);
+        return data.map((item) => ({ ...item, _pays: paysId }));
       })
     );
-    return results
-      .filter((r) => r.status === "fulfilled")
-      .flatMap((r) => r.value);
-  },
+    return results.filter((r) => r.status === "fulfilled").flatMap((r) => r.value);
+  };
 
-  getAllAlertes: async () => {
-    const results = await Promise.allSettled(
-      Object.entries(PAYS_API).map(async ([paysId, api]) => {
-        const alertes = await api.getAlertes();
-        return alertes.map((a) => ({ ...a, _pays: paysId }));
-      })
-    );
-    return results
-      .filter((r) => r.status === "fulfilled")
-      .flatMap((r) => r.value);
-  },
+  const siegeAPI = {
+    getAllSites: () => collect((api) => api.getSites()),
+    getAllLots: () => collect((api) => api.getLots()),
+    getAllCapteurs: () => collect((api) => api.getCapteurs()),
+    getAllAlertes: () => collect((api) => api.getAlertes()),
+    getAllTemperatures: () => collect((api) => api.getTemperatures()),
+    getAllHumidites: () => collect((api) => api.getHumidites()),
 
-  getAllTemperatures: async () => {
-    const results = await Promise.allSettled(
-      Object.entries(PAYS_API).map(async ([paysId, api]) => {
-        const mesures = await api.getTemperatures();
-        return mesures.map((m) => ({ ...m, _pays: paysId }));
-      })
-    );
-    return results
-      .filter((r) => r.status === "fulfilled")
-      .flatMap((r) => r.value);
-  },
+    getStatsSiege: async () => {
+      const [lots, alertes, capteurs] = await Promise.all([
+        siegeAPI.getAllLots(),
+        siegeAPI.getAllAlertes(),
+        siegeAPI.getAllCapteurs(),
+      ]);
+      const lotsParPays = {};
+      entries.forEach(([id]) => {
+        lotsParPays[id] = lots.filter((l) => l._pays === id).length;
+      });
+      return {
+        totalLots: lots.length,
+        totalAlertes: alertes.length,
+        totalCapteurs: capteurs.length,
+        lotsParPays,
+      };
+    },
+  };
+  return siegeAPI;
+}
 
-  getAllHumidites: async () => {
-    const results = await Promise.allSettled(
-      Object.entries(PAYS_API).map(async ([paysId, api]) => {
-        const mesures = await api.getHumidites();
-        return mesures.map((m) => ({ ...m, _pays: paysId }));
-      })
-    );
-    return results
-      .filter((r) => r.status === "fulfilled")
-      .flatMap((r) => r.value);
-  },
-
-  getStatsSiege: async () => {
-    const [lots, alertes] = await Promise.all([
-      siegeAPI.getAllLots(),
-      siegeAPI.getAllAlertes(),
-    ]);
-    return {
-      totalLots: lots.length,
-      totalAlertes: alertes.length,
-      lotsParPays: {
-        bresil: lots.filter((l) => l._pays === "bresil").length,
-        equateur: lots.filter((l) => l._pays === "equateur").length,
-        colombie: lots.filter((l) => l._pays === "colombie").length,
-      },
-    };
-  },
-};
+// Instance par défaut (tous pays). Pour restreindre : buildSiegeAPI(accessiblePays)
+export const siegeAPI = buildSiegeAPI();
+export { buildSiegeAPI };

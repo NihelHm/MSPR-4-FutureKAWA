@@ -1,20 +1,23 @@
 // ==========================================================
-// PAGE LOT DETAIL
+// PAGE LOT DETAIL — niveau LOT
+// Affiche les infos du lot, ses capteurs liés et l'historique
+// des mesures filtré sur ces capteurs.
 // ==========================================================
 
+import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useLot } from "../hooks/useLots";
+import { useCapteursDuLot } from "../hooks/useCapteurs";
 import { useMesures } from "../hooks/useMesures";
-import { PAYS_CONFIG, STATUT_COLORS } from "../constants/pays";
+import { PAYS_CONFIG, STATUT_COLORS, CAPTEUR_TYPES } from "../constants/pays";
 import MesureChart from "../components/MesureChart";
-import { PageHeader, SectionTitle, Loader, ErrorBox, Grid } from "../components/UI";
 import StatCard from "../components/StatCard";
+import { PageHeader, SectionTitle, Loader, ErrorBox, Grid, Card, Button, Badge } from "../components/UI";
 import styles from "./LotDetail.module.css";
 
 function getAge(dateStockage) {
   if (!dateStockage) return null;
-  const diff = Date.now() - new Date(dateStockage).getTime();
-  return Math.floor(diff / (1000 * 60 * 60 * 24));
+  return Math.floor((Date.now() - new Date(dateStockage).getTime()) / (1000 * 60 * 60 * 24));
 }
 
 export default function LotDetail() {
@@ -23,23 +26,21 @@ export default function LotDetail() {
   const config = PAYS_CONFIG[paysId];
 
   const { lot, loading: lotLoading, error: lotError } = useLot(paysId, lotId);
+  const { capteurs, loading: capLoading } = useCapteursDuLot(paysId, lotId);
+
+  // Ids des capteurs du lot → filtrage des mesures
+  const capteurIds = useMemo(() => capteurs.map((c) => c.id), [capteurs]);
   const {
-    temperatures,
-    humidites,
-    loading: mesLoading,
-    conditionsIdéales,
-    tolerances,
-    getStatutTemperature,
-    getStatutHumidite,
-  } = useMesures(paysId);
+    temperatures, humidites, lastTemperature, lastHumidite,
+    loading: mesLoading, conditionsIdéales, tolerances,
+  } = useMesures(paysId, capteurIds.length ? capteurIds : null);
 
   if (!config) return <ErrorBox message={`Pays inconnu : ${paysId}`} />;
   if (lotLoading) return <Loader text="Chargement du lot..." />;
   if (lotError) return <ErrorBox message={`Lot introuvable : ${lotError}`} />;
-  if (!lot) return <Loader />;
 
-  const age = getAge(lot.date_stockage);
-  const statutConfig = STATUT_COLORS[lot.statut] || { bg: "#222", text: "#aaa", label: lot.statut };
+  const age = getAge(lot?.date_stockage);
+  const statutConf = STATUT_COLORS[lot?.statut] || { bg: "#222", text: "#aaa", label: lot?.statut };
 
   const tempMin = conditionsIdéales ? conditionsIdéales.temperature - tolerances.temperature : undefined;
   const tempMax = conditionsIdéales ? conditionsIdéales.temperature + tolerances.temperature : undefined;
@@ -53,103 +54,123 @@ export default function LotDetail() {
       </button>
 
       <PageHeader
-        title={lot.reference}
-        sub={`${config.flag} ${config.nom} · Site #${lot.site_id}`}
+        title={`📦 Lot ${lot?.reference || lot?.id || lotId}`}
+        sub={`${config.flag} ${config.nom}${lot?.site_id != null ? ` · Site #${lot.site_id}` : ""}`}
       >
-        <span
-          className={styles.statut}
-          style={{ background: statutConfig.bg, color: statutConfig.text }}
-        >
-          {statutConfig.label}
-        </span>
+        <Button onClick={() => navigate(`/pays/${paysId}/lots/${lotId}/edit`)}>
+          ✎ Modifier
+        </Button>
       </PageHeader>
 
       <Grid cols={4}>
+        <StatCard label="Statut" value={statutConf.label} icon="●" />
         <StatCard
-          label="Ancienneté"
-          value={age ?? "—"}
-          unit="j"
-          icon="📅"
-          variant={age > 365 ? "alert" : age > 300 ? "warning" : "default"}
-          sub={age > 365 ? "⚠ Lot périmé" : age > 300 ? "Approche péremption" : ""}
+          label="Âge en stock"
+          value={age === null ? "—" : `${age}j`}
+          icon="⏱"
+          variant={age !== null && age > 365 ? "alert" : "default"}
+          sub={age !== null && age > 365 ? "Dépasse 365 j (péremption)" : null}
         />
+        <StatCard label="Capteurs liés" value={capLoading ? "…" : capteurs.length} icon="📡" />
         <StatCard
-          label="Date stockage"
-          value={lot.date_stockage ? new Date(lot.date_stockage).toLocaleDateString("fr-FR") : "—"}
-          icon="📦"
-        />
-        <StatCard
-          label="Date réception"
-          value={lot.date_reception ? new Date(lot.date_reception).toLocaleDateString("fr-FR") : "—"}
-          icon="🚚"
-        />
-        <StatCard
-          label="Site"
-          value={`#${lot.site_id}`}
-          icon="🏭"
-          sub={config.nom}
+          label="Dernière temp."
+          value={lastTemperature ? lastTemperature.valeur : "—"}
+          unit={lastTemperature ? "°C" : ""}
+          icon="🌡"
         />
       </Grid>
 
-      <div className={styles.section}>
-        <SectionTitle>Historique température & humidité</SectionTitle>
-        {mesLoading ? (
-          <Loader text="Chargement des mesures..." />
+      {/* Infos détaillées du lot */}
+      <section className={styles.section}>
+        <SectionTitle>Informations du lot</SectionTitle>
+        <Card>
+          <div className={styles.infoGrid}>
+            <Info label="Référence" value={lot?.reference || "—"} />
+            <Info label="Identifiant" value={lot?.id ?? lotId} mono />
+            <Info label="Site / Entrepôt" value={lot?.site_id != null ? `#${lot.site_id}` : "—"} />
+            <Info label="Date de réception" value={fmtDate(lot?.date_reception)} />
+            <Info label="Date de stockage" value={fmtDate(lot?.date_stockage)} />
+            <Info label="Statut" value={statutConf.label} />
+          </div>
+        </Card>
+      </section>
+
+      {/* Capteurs liés */}
+      <section className={styles.section}>
+        <SectionTitle>Capteurs liés ({capteurs.length})</SectionTitle>
+        {capLoading ? (
+          <Loader text="Chargement des capteurs..." />
+        ) : capteurs.length === 0 ? (
+          <div className={styles.empty}>
+            Aucun capteur lié à ce lot. Utilisez « Modifier » pour en associer.
+          </div>
         ) : (
-          <div className={styles.chartsGrid}>
-            <MesureChart
-              data={temperatures}
-              label="Température"
-              unit="°C"
-              color="#FF8C42"
-              seuilMin={tempMin}
-              seuilMax={tempMax}
-            />
-            <MesureChart
-              data={humidites}
-              label="Humidité"
-              unit="%"
-              color="#64B5F6"
-              seuilMin={humMin}
-              seuilMax={humMax}
-            />
+          <div className={styles.capteurList}>
+            {capteurs.map((c) => {
+              const tc = CAPTEUR_TYPES[c.type_capteur] || { icon: "📡", label: c.type_capteur, unit: "" };
+              return (
+                <div key={c.id} className={styles.capteurChip}>
+                  <span className={styles.capteurIcon}>{tc.icon}</span>
+                  <div>
+                    <div className={styles.capteurNom}>{c.nom || `Capteur #${c.id}`}</div>
+                    <div className={styles.capteurMeta}>
+                      <Badge>{tc.label}</Badge>
+                      <span className={styles.capteurId}>#{c.id}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className={styles.section}>
-        <SectionTitle>Informations lot</SectionTitle>
-        <div className={styles.infoGrid}>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Référence</span>
-            <span className={styles.infoVal}>{lot.reference}</span>
+      {/* Courbes des mesures du lot */}
+      <section className={styles.section}>
+        <SectionTitle>Historique des mesures du lot</SectionTitle>
+        {mesLoading ? (
+          <Loader text="Chargement des mesures..." />
+        ) : capteurIds.length === 0 ? (
+          <div className={styles.empty}>Aucun capteur lié — pas de mesures à afficher.</div>
+        ) : (
+          <div className={styles.chartsGrid}>
+            <Card>
+              <MesureChart
+                data={temperatures}
+                label="Température"
+                unit="°C"
+                color={CAPTEUR_TYPES.temperature.color}
+                seuilMin={tempMin}
+                seuilMax={tempMax}
+              />
+            </Card>
+            <Card>
+              <MesureChart
+                data={humidites}
+                label="Humidité"
+                unit="%"
+                color={CAPTEUR_TYPES.humidite.color}
+                seuilMin={humMin}
+                seuilMax={humMax}
+              />
+            </Card>
           </div>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Pays</span>
-            <span className={styles.infoVal}>{config.flag} {config.nom}</span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Statut</span>
-            <span className={styles.infoVal}>{lot.statut || "—"}</span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Site ID</span>
-            <span className={styles.infoVal}>#{lot.site_id}</span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Date réception</span>
-            <span className={styles.infoVal}>
-              {lot.date_reception ? new Date(lot.date_reception).toLocaleDateString("fr-FR") : "—"}
-            </span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Date stockage</span>
-            <span className={styles.infoVal}>
-              {lot.date_stockage ? new Date(lot.date_stockage).toLocaleDateString("fr-FR") : "—"}
-            </span>
-          </div>
-        </div>
-      </div>
+        )}
+      </section>
     </div>
   );
+}
+
+function Info({ label, value, mono }) {
+  return (
+    <div className={styles.info}>
+      <span className={styles.infoLabel}>{label}</span>
+      <span className={`${styles.infoValue} ${mono ? styles.mono : ""}`}>{value}</span>
+    </div>
+  );
+}
+
+function fmtDate(d) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }

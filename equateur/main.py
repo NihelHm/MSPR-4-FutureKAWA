@@ -28,6 +28,8 @@ import psycopg2.extras
 import os
 from datetime import date
 
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # ==========================================================
 # VARIABLES D'ENVIRONNEMENT
@@ -51,7 +53,12 @@ app = FastAPI(
     title=f"FutureKawa API - Backend Pays {COUNTRY_NAME}"
 )
 
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # ==========================================================
 # CONNEXION POSTGRESQL
 # ==========================================================

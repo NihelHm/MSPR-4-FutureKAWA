@@ -1,229 +1,244 @@
 // ==========================================================
-// PAGE FORMULAIRE LOT (création + édition)
+// PAGE LOT FORM — création / édition d'un lot
+// - préremplit le site via ?site=<id>
+// - permet de LIER des capteurs du site au lot (capteur.lot_id)
 // ==========================================================
 
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useLots, useLot } from "../hooks/useLots";
+import { useSites } from "../hooks/useSites";
+import { useCapteurs } from "../hooks/useCapteurs";
 import { PAYS_API } from "../services/api";
-import { PAYS_CONFIG } from "../constants/pays";
-import { PageHeader, Loader, ErrorBox } from "../components/UI";
+import { PAYS_CONFIG, CAPTEUR_TYPES } from "../constants/pays";
+import { PageHeader, Loader, ErrorBox, Card, Button } from "../components/UI";
 import styles from "./LotForm.module.css";
 
 const STATUTS = ["stocké", "en alerte", "périmé", "expédié"];
 
 export default function LotForm() {
   const { paysId, lotId } = useParams();
-  const navigate = useNavigate();
-  const config = PAYS_CONFIG[paysId];
   const isEdit = Boolean(lotId);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const siteFromQuery = searchParams.get("site");
+
+  const config = PAYS_CONFIG[paysId];
+  const { createLot, updateLot } = useLots(paysId);
+  const { lot, loading: lotLoading } = useLot(paysId, isEdit ? lotId : null);
+  const { sites } = useSites(paysId);
+  const { capteurs, loading: capLoading, refetch: refetchCapteurs } = useCapteurs(paysId);
 
   const [form, setForm] = useState({
     reference: "",
     date_reception: "",
     date_stockage: "",
     statut: "stocké",
-    site_id: "",
+    site_id: siteFromQuery || "",
   });
-  const [sites, setSites] = useState([]);
-  const [loading, setLoading] = useState(isEdit);
-  const [submitting, setSubmitting] = useState(false);
+  // ids des capteurs sélectionnés (à lier au lot)
+  const [selectedCapteurs, setSelectedCapteurs] = useState([]);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
 
-  // Charger les sites du pays
+  // Pré-remplissage en édition
   useEffect(() => {
-    if (!paysId) return;
-    PAYS_API[paysId]
-      .getSites()
-      .then(setSites)
-      .catch(() => {});
-  }, [paysId]);
+    if (isEdit && lot) {
+      setForm({
+        reference: lot.reference || "",
+        date_reception: (lot.date_reception || "").slice(0, 10),
+        date_stockage: (lot.date_stockage || "").slice(0, 10),
+        statut: lot.statut || "stocké",
+        site_id: lot.site_id != null ? String(lot.site_id) : "",
+      });
+    }
+  }, [isEdit, lot]);
 
-  // En mode édition, charger le lot existant
+  // En édition : capteurs déjà liés au lot
   useEffect(() => {
-    if (!isEdit || !paysId || !lotId) return;
-    setLoading(true);
-    PAYS_API[paysId]
-      .getLot(lotId)
-      .then((lot) => {
-        setForm({
-          reference: lot.reference || "",
-          date_reception: lot.date_reception || "",
-          date_stockage: lot.date_stockage || "",
-          statut: lot.statut || "stocké",
-          site_id: lot.site_id || "",
-        });
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [isEdit, paysId, lotId]);
+    if (isEdit && lotId && capteurs.length) {
+      setSelectedCapteurs(
+        capteurs.filter((c) => String(c.lot_id) === String(lotId)).map((c) => c.id)
+      );
+    }
+  }, [isEdit, lotId, capteurs]);
 
-  const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  // Capteurs du site choisi (ou tous si aucun site sélectionné)
+  const capteursDuSite = useMemo(() => {
+    if (!form.site_id) return capteurs;
+    return capteurs.filter((c) => String(c.site_id) === String(form.site_id));
+  }, [capteurs, form.site_id]);
+
+  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const toggleCapteur = (id) => {
+    setSelectedCapteurs((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  // Synchronise les liaisons capteur ↔ lot après sauvegarde
+  const syncCapteurs = async (targetLotId) => {
+    const api = PAYS_API[paysId];
+    const dejaLies = capteurs.filter((c) => String(c.lot_id) === String(targetLotId)).map((c) => c.id);
+    const aLier = selectedCapteurs.filter((id) => !dejaLies.includes(id));
+    const aDelier = dejaLies.filter((id) => !selectedCapteurs.includes(id));
+    await Promise.all([
+      ...aLier.map((id) => api.linkCapteurToLot(id, targetLotId)),
+      ...aDelier.map((id) => api.unlinkCapteur(id)),
+    ]);
   };
 
   const handleSubmit = async () => {
-    if (!form.reference || !form.site_id) {
-      setError("La référence et le site sont obligatoires.");
-      return;
-    }
-    setSubmitting(true);
+    setSaving(true);
     setError(null);
     try {
       const payload = {
-        ...form,
-        site_id: parseInt(form.site_id),
+        reference: form.reference,
         date_reception: form.date_reception || null,
         date_stockage: form.date_stockage || null,
+        statut: form.statut,
+        site_id: form.site_id ? Number(form.site_id) : null,
       };
+
+      let targetLotId = lotId;
       if (isEdit) {
-        await PAYS_API[paysId].updateLot(lotId, payload);
+        await updateLot(lotId, payload);
       } else {
-        await PAYS_API[paysId].createLot(payload);
+        const res = await createLot(payload);
+        targetLotId = res?.lot?.id ?? res?.id;
       }
-      setSuccess(true);
-      setTimeout(() => navigate(`/pays/${paysId}`), 1200);
+
+      if (targetLotId != null) {
+        await syncCapteurs(targetLotId);
+        await refetchCapteurs();
+      }
+
+      navigate(form.site_id ? `/pays/${paysId}/sites/${form.site_id}` : `/pays/${paysId}`);
     } catch (err) {
       setError(err.message);
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
   if (!config) return <ErrorBox message={`Pays inconnu : ${paysId}`} />;
-  if (loading) return <Loader text="Chargement du lot..." />;
+  if (isEdit && lotLoading) return <Loader text="Chargement du lot..." />;
 
   return (
     <div className={styles.page}>
       <button className={styles.back} onClick={() => navigate(-1)}>← Retour</button>
 
       <PageHeader
-        title={isEdit ? "Modifier le lot" : "Nouveau lot"}
+        title={isEdit ? "✎ Modifier le lot" : "＋ Nouveau lot"}
         sub={`${config.flag} ${config.nom}`}
       />
 
       {error && <ErrorBox message={error} />}
 
-      {success && (
-        <div className={styles.successBanner}>
-          ✓ Lot {isEdit ? "modifié" : "créé"} avec succès — redirection...
-        </div>
-      )}
-
-      <div className={styles.formCard}>
+      <Card>
         <div className={styles.formGrid}>
-
-          <div className={styles.field}>
-            <label className={styles.label}>Référence *</label>
+          <Field label="Référence">
             <input
               className={styles.input}
-              name="reference"
-              type="text"
-              placeholder="ex: LOT-BR-042"
               value={form.reference}
-              onChange={handleChange}
+              onChange={(e) => setField("reference", e.target.value)}
+              placeholder="ex : LOT-BR-2026-001"
             />
-            <span className={styles.hint}>Identifiant unique du lot</span>
-          </div>
+          </Field>
 
-          <div className={styles.field}>
-            <label className={styles.label}>Statut</label>
+          <Field label="Site / Entrepôt">
             <select
               className={styles.input}
-              name="statut"
+              value={form.site_id}
+              onChange={(e) => setField("site_id", e.target.value)}
+            >
+              <option value="">— Sélectionner —</option>
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nom || `Site #${s.id}`}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Date de réception">
+            <input
+              type="date"
+              className={styles.input}
+              value={form.date_reception}
+              onChange={(e) => setField("date_reception", e.target.value)}
+            />
+          </Field>
+
+          <Field label="Date de stockage">
+            <input
+              type="date"
+              className={styles.input}
+              value={form.date_stockage}
+              onChange={(e) => setField("date_stockage", e.target.value)}
+            />
+          </Field>
+
+          <Field label="Statut">
+            <select
+              className={styles.input}
               value={form.statut}
-              onChange={handleChange}
+              onChange={(e) => setField("statut", e.target.value)}
             >
               {STATUTS.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
-          </div>
-
-          <div className={styles.field}>
-            <label className={styles.label}>Date de réception</label>
-            <input
-              className={styles.input}
-              name="date_reception"
-              type="date"
-              value={form.date_reception}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div className={styles.field}>
-            <label className={styles.label}>Date de stockage</label>
-            <input
-              className={styles.input}
-              name="date_stockage"
-              type="date"
-              value={form.date_stockage}
-              onChange={handleChange}
-            />
-            <span className={styles.hint}>Utilisée pour le calcul FIFO et la péremption (365j)</span>
-          </div>
-
-          <div className={`${styles.field} ${styles.fieldFull}`}>
-            <label className={styles.label}>Site / Entrepôt *</label>
-            <select
-              className={styles.input}
-              name="site_id"
-              value={form.site_id}
-              onChange={handleChange}
-            >
-              <option value="">-- Sélectionner un site --</option>
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>
-                  #{s.id} — {s.nom} {s.localisation ? `(${s.localisation})` : ""}
-                </option>
-              ))}
-            </select>
-            {sites.length === 0 && (
-              <span className={styles.hintWarn}>
-                ⚠ Aucun site disponible — vérifiez la connexion au backend
-              </span>
-            )}
-          </div>
-
+          </Field>
         </div>
+      </Card>
 
-        {/* Résumé */}
-        {form.reference && form.site_id && (
-          <div className={styles.preview}>
-            <div className={styles.previewLabel}>Aperçu du lot</div>
-            <div className={styles.previewContent}>
-              <span className={styles.previewRef}>{form.reference}</span>
-              <span className={styles.previewSep}>·</span>
-              <span>{config.flag} {config.nom}</span>
-              <span className={styles.previewSep}>·</span>
-              <span className={styles.previewStatut}>{form.statut}</span>
-              {form.date_stockage && (
-                <>
-                  <span className={styles.previewSep}>·</span>
-                  <span>Stocké le {new Date(form.date_stockage).toLocaleDateString("fr-FR")}</span>
-                </>
-              )}
-            </div>
+      {/* Liaison des capteurs */}
+      <Card className={styles.capteurCard}>
+        <h3 className={styles.subTitle}>Capteurs liés au lot</h3>
+        <p className={styles.subHint}>
+          Cochez les capteurs à associer à ce lot{form.site_id ? " (capteurs du site sélectionné)" : ""}.
+        </p>
+        {capLoading ? (
+          <Loader text="Chargement des capteurs..." />
+        ) : capteursDuSite.length === 0 ? (
+          <div className={styles.empty}>Aucun capteur disponible.</div>
+        ) : (
+          <div className={styles.capteurGrid}>
+            {capteursDuSite.map((c) => {
+              const tc = CAPTEUR_TYPES[c.type_capteur] || { icon: "📡", label: c.type_capteur };
+              const checked = selectedCapteurs.includes(c.id);
+              return (
+                <label key={c.id} className={`${styles.capteurItem} ${checked ? styles.capteurChecked : ""}`}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleCapteur(c.id)} />
+                  <span className={styles.capteurIcon}>{tc.icon}</span>
+                  <span className={styles.capteurNom}>
+                    {c.nom || `Capteur #${c.id}`}
+                    <span className={styles.capteurType}>{tc.label}</span>
+                  </span>
+                </label>
+              );
+            })}
           </div>
         )}
+      </Card>
 
-        <div className={styles.actions}>
-          <button
-            className={styles.cancelBtn}
-            onClick={() => navigate(-1)}
-            disabled={submitting}
-          >
-            Annuler
-          </button>
-          <button
-            className={styles.submitBtn}
-            onClick={handleSubmit}
-            disabled={submitting || success}
-          >
-            {submitting ? "Enregistrement..." : isEdit ? "Modifier le lot" : "Créer le lot"}
-          </button>
-        </div>
+      <div className={styles.actions}>
+        <Button onClick={() => navigate(-1)}>Annuler</Button>
+        <Button variant="primary" onClick={handleSubmit} disabled={saving}>
+          {saving ? "Enregistrement..." : isEdit ? "Enregistrer" : "Créer le lot"}
+        </Button>
       </div>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div className={styles.field}>
+      <label className={styles.fieldLabel}>{label}</label>
+      {children}
     </div>
   );
 }

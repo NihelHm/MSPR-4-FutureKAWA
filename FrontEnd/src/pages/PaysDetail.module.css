@@ -1,56 +1,44 @@
-.page {
-  padding: 36px 40px;
-  max-width: 1200px;
-}
+.page { padding: 36px 40px; max-width: 1200px; }
 
 .condBanner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 18px;
-  margin-bottom: 24px;
-  font-size: 13px;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 18px; margin-bottom: 24px; font-size: 13px;
 }
 
-.condLabel {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-  font-weight: 600;
-  margin-right: 4px;
+.condLabel { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 600; margin-right: 4px; }
+.condVal { color: var(--text-secondary); }
+.condSep { color: var(--border); }
+
+.section { margin-top: 32px; }
+
+.sitesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+
+.siteCard {
+  background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: 12px; padding: 18px; text-decoration: none;
+  transition: all 0.15s; display: block;
 }
 
-.condVal {
-  color: var(--text-secondary);
-}
+.siteCard:hover { border-color: var(--accent); transform: translateY(-1px); }
 
-.condSep {
-  color: var(--border);
-}
+.siteTop { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.siteIcon { font-size: 22px; }
+.siteId { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.siteName { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+.siteLoc { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
 
-.charts {
-  margin-top: 28px;
-  margin-bottom: 28px;
-}
+.siteStats { display: flex; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.siteStat { font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono); }
 
-.chartsGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
+.chartsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
-.twoCol {
-  display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: 28px;
+.empty {
+  padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px;
+  border: 1px dashed var(--border); border-radius: 12px;
 }
 
 @media (max-width: 900px) {
   .page { padding: 20px; }
   .chartsGrid { grid-template-columns: 1fr; }
-  .twoCol { grid-template-columns: 1fr; }
 }

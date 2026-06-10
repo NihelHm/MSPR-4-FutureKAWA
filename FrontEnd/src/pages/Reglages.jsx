@@ -1,144 +1,122 @@
 // ==========================================================
-// PAGE RÉGLAGES
+// PAGE RÉGLAGES — profil/rôle, thème, configuration backend, seuils
 // ==========================================================
 
 import { useApp } from "../context/AppContext";
-import { PAYS_CONFIG } from "../constants/pays";
-import { PageHeader, SectionTitle } from "../components/UI";
+import { PAYS_LIST, SIEGE_URL } from "../constants/pays";
+import { PageHeader, SectionTitle, Card, Badge, Toggle } from "../components/UI";
 import styles from "./Reglages.module.css";
 
-function ThemePreview({ type }) {
-  const isDark = type === "dark";
+export default function Reglages() {
+  const { user, roleConfig, isAdmin, accessiblePays, theme, toggleTheme } = useApp();
+
   return (
-    <div className={`${styles.preview} ${isDark ? styles.previewDark : styles.previewLight}`}>
-      <div className={styles.previewSidebar} />
-      <div className={styles.previewContent}>
-        <div className={styles.previewCard} />
-        <div className={styles.previewCard} />
-        <div className={styles.previewCard} />
-      </div>
+    <div className={styles.page}>
+      <PageHeader title="⚙ Réglages" sub="Profil, apparence et configuration technique" />
+
+      {/* Profil / rôle */}
+      <section className={styles.section}>
+        <SectionTitle>Mon profil</SectionTitle>
+        <Card>
+          <div className={styles.profileGrid}>
+            <Info label="Nom" value={user?.username || "—"} />
+            <Info label="Email" value={user?.email || "—"} mono />
+            <Info label="Rôle">
+              <Badge variant="accent">{roleConfig?.icon} {roleConfig?.label}</Badge>
+            </Info>
+            <Info label="Administrateur">
+              <Badge variant={isAdmin ? "success" : "default"}>{isAdmin ? "Oui" : "Non"}</Badge>
+            </Info>
+            <Info label="Pays accessibles">
+              <span className={styles.paysTags}>
+                {accessiblePays.length
+                  ? accessiblePays.map((p) => (
+                      <Badge key={p}>{PAYS_LIST.find((x) => x.id === p)?.flag} {p}</Badge>
+                    ))
+                  : "Aucun"}
+              </span>
+            </Info>
+          </div>
+        </Card>
+      </section>
+
+      {/* Apparence */}
+      <section className={styles.section}>
+        <SectionTitle>Apparence</SectionTitle>
+        <Card>
+          <div className={styles.row}>
+            <div>
+              <div className={styles.rowTitle}>Thème {theme === "dark" ? "sombre" : "clair"}</div>
+              <div className={styles.rowSub}>Basculer entre l'interface sombre et claire.</div>
+            </div>
+            <Toggle
+              checked={theme === "dark"}
+              onChange={toggleTheme}
+              labelOn="🌙 Sombre"
+              labelOff="☀ Clair"
+            />
+          </div>
+        </Card>
+      </section>
+
+      {/* Configuration backend */}
+      <section className={styles.section}>
+        <SectionTitle>Configuration des backends</SectionTitle>
+        <Card>
+          <div className={styles.urlRow}>
+            <span className={styles.urlLabel}>◈ Siège (auth / utilisateurs)</span>
+            <code className={styles.url}>{SIEGE_URL}</code>
+          </div>
+          {PAYS_LIST.map((p) => (
+            <div key={p.id} className={styles.urlRow}>
+              <span className={styles.urlLabel}>{p.flag} {p.nom}</span>
+              <code className={styles.url}>{p.baseUrl}</code>
+            </div>
+          ))}
+          <p className={styles.note}>
+            Ces URLs sont définies dans le fichier <code>.env</code> (variables <code>VITE_*</code>).
+            Modifiez-les puis redémarrez le serveur de développement.
+          </p>
+        </Card>
+      </section>
+
+      {/* Seuils par pays */}
+      <section className={styles.section}>
+        <SectionTitle>Conditions idéales par pays</SectionTitle>
+        <Card>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Pays</th>
+                <th>Température cible</th>
+                <th>Tolérance</th>
+                <th>Humidité cible</th>
+                <th>Tolérance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PAYS_LIST.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.flag} {p.nom}</td>
+                  <td>{p.conditions.temperature} °C</td>
+                  <td>± {p.tolerances.temperature} °C</td>
+                  <td>{p.conditions.humidite} %</td>
+                  <td>± {p.tolerances.humidite} %</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      </section>
     </div>
   );
 }
 
-export default function Reglages() {
-  const { user, theme, toggleTheme } = useApp();
-  const pays = user?.role !== "siege" ? PAYS_CONFIG[user?.role] : null;
-
+function Info({ label, value, children, mono }) {
   return (
-    <div className={styles.page}>
-      <PageHeader title="Réglages" sub="Préférences de l'interface" />
-
-      {/* Thème */}
-      <section className={styles.section}>
-        <SectionTitle>Apparence</SectionTitle>
-
-        <div className={styles.themeGrid}>
-          <button
-            className={`${styles.themeOption} ${theme === "dark" ? styles.themeSelected : ""}`}
-            onClick={() => theme !== "dark" && toggleTheme()}
-          >
-            <ThemePreview type="dark" />
-            <div className={styles.themeLabel}>
-              <span className={styles.themeName}>Sombre</span>
-              <span className={styles.themeDesc}>Fond noir, accents verts — monitoring professionnel</span>
-            </div>
-            {theme === "dark" && <span className={styles.themeCheck}>✓ Actif</span>}
-          </button>
-
-          <button
-            className={`${styles.themeOption} ${theme === "light" ? styles.themeSelected : ""}`}
-            onClick={() => theme !== "light" && toggleTheme()}
-          >
-            <ThemePreview type="light" />
-            <div className={styles.themeLabel}>
-              <span className={styles.themeName}>Café</span>
-              <span className={styles.themeDesc}>Beige chaud, brun café, blanc cassé — ambiance terrain</span>
-            </div>
-            {theme === "light" && <span className={styles.themeCheck}>✓ Actif</span>}
-          </button>
-        </div>
-      </section>
-
-      {/* Informations du compte */}
-      <section className={styles.section}>
-        <SectionTitle>Compte</SectionTitle>
-        <div className={styles.infoCard}>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Nom</span>
-            <span className={styles.infoVal}>{user?.nom || "—"}</span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Email</span>
-            <span className={styles.infoVal}>{user?.email || "—"}</span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Rôle</span>
-            <span className={styles.infoVal}>
-              {pays ? `${pays.flag} Responsable ${pays.nom}` : "◈ Direction Siège"}
-            </span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Accès</span>
-            <span className={styles.infoVal}>
-              {pays ? pays.nom : "Tous les pays"}
-            </span>
-          </div>
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Connecté depuis</span>
-            <span className={styles.infoVal}>
-              {user?.loginAt
-                ? new Date(user.loginAt).toLocaleString("fr-FR")
-                : "—"}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* Backends */}
-      <section className={styles.section}>
-        <SectionTitle>Configuration backends</SectionTitle>
-        <div className={styles.infoCard}>
-          {Object.values(PAYS_CONFIG).map((p) => (
-            <div key={p.id} className={styles.infoRow}>
-              <span className={styles.infoLabel}>{p.flag} {p.nom}</span>
-              <span className={styles.infoVal} style={{ fontFamily: "var(--font-mono)", fontSize: "12px" }}>
-                {p.baseUrl}
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className={styles.hint}>
-          Pour modifier les URLs, éditez <code>src/constants/pays.js</code>
-        </p>
-      </section>
-
-      {/* Conditions idéales */}
-      <section className={styles.section}>
-        <SectionTitle>Seuils de conservation par pays</SectionTitle>
-        <div className={styles.seuilsGrid}>
-          {Object.values(PAYS_CONFIG).map((p) => (
-            <div key={p.id} className={styles.seuilCard}>
-              <div className={styles.seuilHeader}>
-                <span className={styles.seuilFlag}>{p.flag}</span>
-                <span className={styles.seuilNom}>{p.nom}</span>
-              </div>
-              <div className={styles.seuilRow}>
-                <span className={styles.seuilLabel}>🌡 Température</span>
-                <span className={styles.seuilVal}>
-                  {p.conditions.temperature}°C ± {p.tolerances.temperature}°C
-                </span>
-              </div>
-              <div className={styles.seuilRow}>
-                <span className={styles.seuilLabel}>💧 Humidité</span>
-                <span className={styles.seuilVal}>
-                  {p.conditions.humidite}% ± {p.tolerances.humidite}%
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+    <div className={styles.info}>
+      <span className={styles.infoLabel}>{label}</span>
+      {children || <span className={`${styles.infoValue} ${mono ? styles.mono : ""}`}>{value}</span>}
     </div>
   );
 }

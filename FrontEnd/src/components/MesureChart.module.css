@@ -6,9 +6,7 @@
   transition: border-color 0.2s;
 }
 
-.wrapper.alert {
-  border-color: var(--danger-dim);
-}
+.wrapper.alert { border-color: var(--danger-dim); }
 
 .header {
   display: flex;
@@ -17,11 +15,7 @@
   margin-bottom: 16px;
 }
 
-.info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+.info { display: flex; flex-direction: column; gap: 4px; }
 
 .chartLabel {
   font-size: 13px;
@@ -31,10 +25,7 @@
   letter-spacing: 0.5px;
 }
 
-.seuil {
-  font-size: 11px;
-  color: var(--text-muted);
-}
+.seuil { font-size: 11px; color: var(--text-muted); }
 
 .lastVal {
   font-family: var(--font-display);
@@ -46,21 +37,9 @@
   gap: 3px;
 }
 
-.lastUnit {
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--text-muted);
-  font-family: var(--font-body);
-}
-
-.alertVal {
-  color: var(--danger);
-}
-
-.chartArea {
-  height: 180px;
-  position: relative;
-}
+.lastUnit { font-size: 13px; font-weight: 400; color: var(--text-muted); font-family: var(--font-body); }
+.alertVal { color: var(--danger); }
+.chartArea { height: 180px; position: relative; }
 
 .empty {
   background: var(--card-bg);

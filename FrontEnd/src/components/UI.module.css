@@ -71,9 +71,7 @@
   50% { transform: translateY(-6px); opacity: 1; }
 }
 
-.loaderText {
-  font-size: 13px;
-}
+.loaderText { font-size: 13px; }
 
 .error {
   display: flex;
@@ -88,9 +86,7 @@
   margin-bottom: 16px;
 }
 
-.errorIcon {
-  font-size: 16px;
-}
+.errorIcon { font-size: 16px; }
 
 .dot {
   display: inline-block;
@@ -159,9 +155,7 @@
   color: var(--bg);
 }
 
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.88;
-}
+.btn-primary:hover:not(:disabled) { opacity: 0.88; }
 
 .btn-danger {
   background: var(--danger-bg);
@@ -169,5 +163,140 @@
   color: var(--danger);
 }
 
+.btn-danger:hover:not(:disabled) { background: var(--danger-dim); }
+
 .btn-md { padding: 8px 16px; font-size: 13px; }
 .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-default { background: var(--hover); color: var(--text-secondary); }
+.badge-accent { background: var(--accent-dim); color: var(--accent); }
+.badge-success { background: var(--success-dim); color: var(--success); }
+.badge-warning { background: var(--warning-dim); color: var(--warning); }
+.badge-danger { background: var(--danger-dim); color: var(--danger); }
+
+/* Toggle */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px 3px 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-body);
+}
+
+.toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.toggleKnob {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+
+.toggleOn {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.toggleOn .toggleKnob { background: var(--accent); transform: translateX(2px); }
+
+.toggleLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.toggleOn .toggleLabel { color: var(--accent); }
+
+/* Modal */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.18s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modalTitle {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.12s;
+}
+
+.modalClose:hover { background: var(--hover); color: var(--text-primary); }
+
+.modalBody { padding: 24px; }
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+}

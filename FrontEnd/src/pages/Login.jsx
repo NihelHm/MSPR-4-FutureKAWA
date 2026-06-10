@@ -1,40 +1,47 @@
 // ==========================================================
-// PAGE LOGIN - FUTUREKAWA
+// PAGE LOGIN — connexion réelle (backend siège, JWT)
 // ==========================================================
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApp, ROLES } from "../context/AppContext";
+import { useApp } from "../context/AppContext";
+import { getRoleConfig } from "../constants/pays";
 import styles from "./Login.module.css";
 
+// Comptes de démonstration (emails issus de init.sql — mot de passe à saisir)
 const DEMO_USERS = [
-  { role: "siege", nom: "Marie Dubois", email: "m.dubois@futurekawa.com" },
-  { role: "bresil", nom: "Carlos Silva", email: "c.silva@futurekawa.com" },
-  { role: "equateur", nom: "Ana Torres", email: "a.torres@futurekawa.com" },
-  { role: "colombie", nom: "Juan Reyes", email: "j.reyes@futurekawa.com" },
+  { email: "admin@futurekawa.com", label: "🛡 Administrateur" },
+  { email: "m.dubois@futurekawa.com", label: "◈ Direction Siège" },
+  { email: "c.silva@futurekawa.com", label: "🇧🇷 Responsable Brésil" },
+  { email: "a.torres@futurekawa.com", label: "🇪🇨 Responsable Équateur" },
+  { email: "j.reyes@futurekawa.com", label: "🇨🇴 Responsable Colombie" },
 ];
 
 export default function Login() {
   const { login } = useApp();
   const navigate = useNavigate();
-  const [selected, setSelected] = useState(null);
-  const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const handleQuickLogin = (demoUser) => {
-    setSelected(demoUser.role);
-    setNom(demoUser.nom);
-    setEmail(demoUser.email);
-  };
+  const [error, setError] = useState(null);
 
   const handleSubmit = async () => {
-    if (!selected || !nom || !email) return;
+    if (!email || !password) {
+      setError("Email et mot de passe requis.");
+      return;
+    }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    login({ role: selected, nom, email });
-    const roleConfig = ROLES[selected];
-    navigate(roleConfig.pays ? `/pays/${roleConfig.pays}` : "/");
+    setError(null);
+    try {
+      const user = await login(email, password);
+      const conf = getRoleConfig(user.role);
+      const cible = conf.scope && conf.scope !== "all" ? `/pays/${conf.scope}` : "/";
+      navigate(cible);
+    } catch (err) {
+      setError(err.message || "Échec de la connexion.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,7 +53,7 @@ export default function Login() {
             <span className={styles.brandName}>FutureKawa</span>
           </div>
           <h1 className={styles.headline}>
-            Monitoring &<br />
+            Monitoring &amp;<br />
             <em>Gestion des stocks</em>
           </h1>
           <p className={styles.sub}>
@@ -55,10 +62,10 @@ export default function Login() {
           </p>
           <div className={styles.features}>
             {[
-              { icon: "📦", label: "Suivi des lots en temps réel" },
-              { icon: "🌡", label: "Monitoring IoT température/humidité" },
+              { icon: "📦", label: "Suivi des lots & sites en temps réel" },
+              { icon: "🌡", label: "Monitoring IoT — capteurs par lot" },
               { icon: "⚠", label: "Alertes qualité automatiques" },
-              { icon: "◈", label: "Vue consolidée siège" },
+              { icon: "🛡", label: "Administration & rôles par pays" },
             ].map((f) => (
               <div key={f.label} className={styles.feature}>
                 <span>{f.icon}</span>
@@ -73,44 +80,12 @@ export default function Login() {
         <div className={styles.card}>
           <div className={styles.cardHeader}>
             <h2 className={styles.cardTitle}>Connexion</h2>
-            <p className={styles.cardSub}>Sélectionnez votre profil</p>
+            <p className={styles.cardSub}>Accédez à la plateforme avec vos identifiants</p>
           </div>
 
-          {/* Sélection rôle */}
-          <div className={styles.roles}>
-            {DEMO_USERS.map((u) => {
-              const roleConf = ROLES[u.role];
-              return (
-                <button
-                  key={u.role}
-                  className={`${styles.roleBtn} ${selected === u.role ? styles.roleActive : ""}`}
-                  onClick={() => handleQuickLogin(u)}
-                >
-                  <span className={styles.roleIcon}>{roleConf.icon}</span>
-                  <div className={styles.roleInfo}>
-                    <div className={styles.roleLabel}>{roleConf.label}</div>
-                    <div className={styles.roleName}>{u.nom}</div>
-                  </div>
-                  {selected === u.role && <span className={styles.roleCheck}>✓</span>}
-                </button>
-              );
-            })}
-          </div>
+          {error && <div className={styles.errorBox}>⚠ {error}</div>}
 
-          <div className={styles.divider}><span>ou entrez manuellement</span></div>
-
-          {/* Formulaire */}
           <div className={styles.form}>
-            <div className={styles.field}>
-              <label className={styles.label}>Nom complet</label>
-              <input
-                className={styles.input}
-                type="text"
-                placeholder="Votre nom"
-                value={nom}
-                onChange={(e) => setNom(e.target.value)}
-              />
-            </div>
             <div className={styles.field}>
               <label className={styles.label}>Email</label>
               <input
@@ -119,38 +94,47 @@ export default function Login() {
                 placeholder="email@futurekawa.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               />
             </div>
-            {!selected && (
-              <div className={styles.field}>
-                <label className={styles.label}>Rôle</label>
-                <select
-                  className={styles.input}
-                  value={selected || ""}
-                  onChange={(e) => setSelected(e.target.value)}
-                >
-                  <option value="">-- Choisir un rôle --</option>
-                  {Object.values(ROLES).map((r) => (
-                    <option key={r.id} value={r.id}>{r.icon} {r.label}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div className={styles.field}>
+              <label className={styles.label}>Mot de passe</label>
+              <input
+                className={styles.input}
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              />
+            </div>
           </div>
 
           <button
             className={styles.submitBtn}
             onClick={handleSubmit}
-            disabled={!selected || !nom || !email || loading}
+            disabled={!email || !password || loading}
           >
             {loading ? (
-              <span className={styles.loadingDots}>
-                <span /><span /><span />
-              </span>
+              <span className={styles.loadingDots}><span /><span /><span /></span>
             ) : (
-              "Accéder à la plateforme →"
+              "Se connecter →"
             )}
           </button>
+
+          <div className={styles.divider}><span>comptes de démonstration</span></div>
+
+          <div className={styles.demoList}>
+            {DEMO_USERS.map((u) => (
+              <button key={u.email} className={styles.demoBtn} onClick={() => setEmail(u.email)}>
+                <span className={styles.demoLabel}>{u.label}</span>
+                <span className={styles.demoEmail}>{u.email}</span>
+              </button>
+            ))}
+          </div>
+          <p className={styles.demoHint}>
+            Cliquez pour pré-remplir l'email, puis saisissez le mot de passe défini en base.
+          </p>
         </div>
       </div>
     </div>

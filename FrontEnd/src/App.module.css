@@ -10,3 +10,14 @@
   min-height: 100vh;
   background: var(--bg);
 }
+
+.guard {
+  padding: 48px 40px;
+  max-width: 720px;
+}
+
+@media (max-width: 768px) {
+  .main {
+    margin-left: 0;
+  }
+}

@@ -1,10 +1,10 @@
 // ==========================================================
-// COMPOSANT NAVBAR - avec profil + réglages
+// COMPOSANT NAVBAR — filtré par rôle + lien admin + profil
 // ==========================================================
 
 import { NavLink, useNavigate } from "react-router-dom";
-import { useApp, ROLES } from "../context/AppContext";
-import { PAYS_LIST } from "../constants/pays";
+import { useApp } from "../context/AppContext";
+import { PAYS_CONFIG } from "../constants/pays";
 import styles from "./Navbar.module.css";
 
 const NAV_GLOBAL = [
@@ -13,13 +13,14 @@ const NAV_GLOBAL = [
 ];
 
 export default function Navbar() {
-  const { user, logout, theme, toggleTheme } = useApp();
+  const { user, logout, roleConfig, accessiblePays, isAdmin, theme, toggleTheme } = useApp();
   const navigate = useNavigate();
 
-  const roleConf = user ? ROLES[user.role] : null;
-  const initiales = user?.nom
-    ? user.nom.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+  const initiales = user?.username
+    ? user.username.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "?";
+
+  const paysVisibles = accessiblePays.map((id) => PAYS_CONFIG[id]).filter(Boolean);
 
   const handleLogout = () => {
     logout();
@@ -32,7 +33,7 @@ export default function Navbar() {
         <span className={styles.logo}>FK</span>
         <div>
           <div className={styles.brandName}>FutureKawa</div>
-          <div className={styles.brandSub}>Monitoring & Stocks</div>
+          <div className={styles.brandSub}>Monitoring &amp; Stocks</div>
         </div>
       </div>
 
@@ -43,44 +44,47 @@ export default function Navbar() {
             key={item.to}
             to={item.to}
             end={item.end}
-            className={({ isActive }) =>
-              `${styles.link} ${isActive ? styles.active : ""}`
-            }
+            className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ""}`}
           >
             <span className={styles.icon}>{item.icon}</span>
             {item.label}
           </NavLink>
         ))}
+        {isAdmin && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ""}`}
+          >
+            <span className={styles.icon}>🛡</span>
+            Administration
+          </NavLink>
+        )}
       </div>
 
       <div className={styles.section}>
-        <div className={styles.sectionLabel}>Par pays</div>
-        {PAYS_LIST.map((pays) => (
+        <div className={styles.sectionLabel}>
+          {accessiblePays.length > 1 ? "Par pays" : "Mon pays"}
+        </div>
+        {paysVisibles.map((pays) => (
           <div key={pays.id} className={styles.paysGroup}>
             <NavLink
               to={`/pays/${pays.id}`}
               end
-              className={({ isActive }) =>
-                `${styles.link} ${isActive ? styles.active : ""}`
-              }
+              className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ""}`}
             >
               <span className={styles.icon}>{pays.flag}</span>
               {pays.nom}
             </NavLink>
             <NavLink
               to={`/pays/${pays.id}/capteurs`}
-              className={({ isActive }) =>
-                `${styles.subLink} ${isActive ? styles.active : ""}`
-              }
+              className={({ isActive }) => `${styles.subLink} ${isActive ? styles.active : ""}`}
             >
               <span className={styles.icon}>📡</span>
               Capteurs
             </NavLink>
             <NavLink
               to={`/pays/${pays.id}/lots/nouveau`}
-              className={({ isActive }) =>
-                `${styles.subLink} ${isActive ? styles.active : ""}`
-              }
+              className={({ isActive }) => `${styles.subLink} ${isActive ? styles.active : ""}`}
             >
               <span className={styles.icon}>＋</span>
               Nouveau lot
@@ -97,9 +101,7 @@ export default function Navbar() {
 
         <NavLink
           to="/reglages"
-          className={({ isActive }) =>
-            `${styles.link} ${isActive ? styles.active : ""}`
-          }
+          className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ""}`}
         >
           <span className={styles.icon}>⚙</span>
           Réglages
@@ -110,19 +112,16 @@ export default function Navbar() {
             <div className={styles.profileLeft}>
               <div className={styles.avatar}>{initiales}</div>
               <div className={styles.profileInfo}>
-                <div className={styles.profileName}>{user.nom}</div>
+                <div className={styles.profileName}>
+                  {user.username}
+                  {isAdmin && <span className={styles.adminTag}>admin</span>}
+                </div>
                 <div className={styles.profileRole}>
-                  {roleConf?.icon} {roleConf?.label}
+                  {roleConfig?.icon} {roleConfig?.label}
                 </div>
               </div>
             </div>
-            <button
-              className={styles.logoutBtn}
-              onClick={handleLogout}
-              title="Se déconnecter"
-            >
-              ⏏
-            </button>
+            <button className={styles.logoutBtn} onClick={handleLogout} title="Se déconnecter">⏏</button>
           </div>
         )}
       </div>

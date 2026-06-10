@@ -4,7 +4,8 @@
 
 import { Link } from "react-router-dom";
 import { useSiege } from "../hooks/useAlertes";
-import { PAYS_LIST } from "../constants/pays";
+import { useApp } from "../context/AppContext";
+import { PAYS_CONFIG } from "../constants/pays";
 import StatCard from "../components/StatCard";
 import LotTable from "../components/LotTable";
 import AlerteList from "../components/AlerteList";
@@ -12,7 +13,10 @@ import { PageHeader, SectionTitle, Loader, ErrorBox, Grid, PaysStatusDot } from 
 import styles from "./Dashboard.module.css";
 
 export default function Dashboard() {
+  const { accessiblePays, roleConfig } = useApp();
   const { stats, allLots, allAlertes, loading, error, paysStatus, refetch } = useSiege();
+
+  const paysVisibles = accessiblePays.map((id) => PAYS_CONFIG[id]).filter(Boolean);
 
   if (loading) return <Loader text="Consolidation des données pays..." />;
 
@@ -20,16 +24,15 @@ export default function Dashboard() {
     <div className={styles.page}>
       <PageHeader
         title="Vue Siège"
-        sub="Consolidation multi-pays — Brésil · Équateur · Colombie"
+        sub={`Consolidation — ${paysVisibles.map((p) => p.nom).join(" · ")}`}
       >
         <button className={styles.refreshBtn} onClick={refetch}>↻ Actualiser</button>
       </PageHeader>
 
       {error && <ErrorBox message={`Erreur de consolidation : ${error}`} />}
 
-      {/* Statut des pays */}
       <div className={styles.paysCards}>
-        {PAYS_LIST.map((pays) => {
+        {paysVisibles.map((pays) => {
           const status = paysStatus[pays.id] || "loading";
           const count = stats?.lotsParPays?.[pays.id] ?? "—";
           return (
@@ -52,14 +55,9 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* Stats globales */}
-      <Grid cols={3}>
-        <StatCard
-          label="Total lots"
-          value={stats?.totalLots ?? "—"}
-          icon="📦"
-          sub="Tous pays confondus"
-        />
+      <Grid cols={4}>
+        <StatCard label="Total lots" value={stats?.totalLots ?? "—"} icon="📦" sub="Pays accessibles" />
+        <StatCard label="Capteurs IoT" value={stats?.totalCapteurs ?? "—"} icon="📡" sub="Tous lots confondus" />
         <StatCard
           label="Alertes actives"
           value={stats?.totalAlertes ?? "—"}
@@ -71,14 +69,18 @@ export default function Dashboard() {
           label="Pays actifs"
           value={Object.values(paysStatus).filter((s) => s === "online").length}
           icon="🌎"
-          sub={`sur ${PAYS_LIST.length} pays`}
-          variant={Object.values(paysStatus).every((s) => s === "online") ? "success" : "warning"}
+          sub={`sur ${paysVisibles.length} accessible${paysVisibles.length > 1 ? "s" : ""}`}
+          variant={
+            paysVisibles.length > 0 && Object.values(paysStatus).every((s) => s === "online")
+              ? "success"
+              : "warning"
+          }
         />
       </Grid>
 
       <div className={styles.twoCol}>
         <div>
-          <SectionTitle>Lots récents (FIFO global)</SectionTitle>
+          <SectionTitle>Lots récents</SectionTitle>
           <LotTable lots={allLots.slice(0, 10)} showPays />
           {allLots.length > 10 && (
             <div className={styles.seeAll}>

@@ -1,123 +1,44 @@
-.page {
-  padding: 36px 40px;
-  max-width: 1100px;
-}
+.page { padding: 36px 40px; max-width: 1200px; }
 
-.section {
-  margin-top: 32px;
+.back {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-secondary); font-family: var(--font-body);
+  font-size: 13px; padding: 4px 0; margin-bottom: 16px;
+  transition: color 0.15s;
 }
+.back:hover { color: var(--accent); }
 
-.capteursGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 14px;
-  margin-bottom: 20px;
-}
+.section { margin-top: 32px; }
 
-.capteurCard {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px;
-  transition: border-color 0.15s;
+.capteurGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px;
 }
+.capteurCard { display: flex; flex-direction: column; gap: 8px; }
+.capteurHead { display: flex; justify-content: space-between; align-items: center; }
+.capteurIcon { font-size: 24px; }
+.capteurId { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.capteurNom { font-family: var(--font-display); font-size: 16px; color: var(--text-primary); }
+.capteurMeta { display: flex; align-items: center; gap: 8px; }
+.metaTxt { font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono); }
 
-.capteurCard:hover {
-  border-color: var(--border-hover);
+.lotLink { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
+.lotBtn {
+  background: var(--accent-dim); border: 1px solid var(--accent);
+  color: var(--accent); border-radius: 6px; padding: 4px 10px;
+  font-size: 12px; cursor: pointer; font-family: var(--font-mono);
+  transition: all 0.15s;
 }
+.lotBtn:hover { background: var(--accent); color: var(--bg); }
+.lotNone { font-size: 12px; color: var(--text-muted); font-style: italic; }
 
-.capteurCard.cardAlert {
-  border-color: var(--danger-dim);
-  background: var(--danger-bg);
-}
-
-.capteurHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 14px;
-}
-
-.capteurName {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.capteurType {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.capteurDot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  margin-top: 3px;
-  flex-shrink: 0;
-}
-
-.dotOk { background: var(--success); }
-.dotAlert {
-  background: var(--danger);
-  animation: pulse 1.5s infinite;
-}
-.dotUnknown { background: var(--text-muted); }
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.capteurVal {
-  font-family: var(--font-display);
-  font-size: 34px;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.capteurUnit {
-  font-size: 15px;
-  font-weight: 400;
-  color: var(--text-muted);
-  font-family: var(--font-body);
-}
-
-.capteurDate {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
-.capteurId {
-  font-size: 10px;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.chartWrap {
-  margin-top: 8px;
-}
+.chartsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
 .empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 60px;
-  color: var(--text-muted);
-  font-size: 14px;
+  padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px;
+  border: 1px dashed var(--border); border-radius: 12px;
 }
 
-.emptyIcon {
-  font-size: 32px;
-  opacity: 0.4;
+@media (max-width: 900px) {
+  .page { padding: 20px; }
+  .chartsGrid { grid-template-columns: 1fr; }
 }

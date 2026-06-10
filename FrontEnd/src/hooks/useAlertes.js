@@ -2,10 +2,12 @@
 // HOOKS useAlertes + useSiege
 // ==========================================================
 
-import { useState, useEffect, useCallback } from "react";
-import { PAYS_API, siegeAPI } from "../services/api";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { PAYS_API, buildSiegeAPI } from "../services/api";
+import { useApp } from "../context/AppContext";
 
 export function useAlertes(paysId) {
+  const { accessiblePays } = useApp();
   const [alertes, setAlertes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,47 +16,48 @@ export function useAlertes(paysId) {
     setLoading(true);
     setError(null);
     try {
-      let data;
       if (paysId && PAYS_API[paysId]) {
-        data = await PAYS_API[paysId].getAlertes();
+        const data = await PAYS_API[paysId].getAlertes();
+        setAlertes((data || []).map((a) => ({ ...a, _pays: paysId })));
       } else {
-        data = await siegeAPI.getAllAlertes();
+        const siege = buildSiegeAPI(accessiblePays);
+        setAlertes((await siege.getAllAlertes()) || []);
       }
-      setAlertes(data || []);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [paysId]);
+  }, [paysId, accessiblePays]);
 
-  useEffect(() => { fetchAlertes(); }, [fetchAlertes]);
+  useEffect(() => {
+    fetchAlertes();
+  }, [fetchAlertes]);
 
   return { alertes, loading, error, refetch: fetchAlertes };
 }
 
 export function useSiege() {
+  const { accessiblePays } = useApp();
+  const siege = useMemo(() => buildSiegeAPI(accessiblePays), [accessiblePays]);
+
   const [stats, setStats] = useState(null);
   const [allLots, setAllLots] = useState([]);
   const [allAlertes, setAllAlertes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [paysStatus, setPaysStatus] = useState({
-    bresil: "loading",
-    equateur: "loading",
-    colombie: "loading",
-  });
+  const [paysStatus, setPaysStatus] = useState({});
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    // Ping chaque pays
+    // Ping de chaque pays accessible
     const statusMap = {};
     await Promise.allSettled(
-      Object.entries(PAYS_API).map(async ([paysId, api]) => {
+      accessiblePays.map(async (paysId) => {
         try {
-          await api.ping();
+          await PAYS_API[paysId].ping();
           statusMap[paysId] = "online";
         } catch {
           statusMap[paysId] = "offline";
@@ -65,9 +68,9 @@ export function useSiege() {
 
     try {
       const [lots, alertes, statsData] = await Promise.all([
-        siegeAPI.getAllLots(),
-        siegeAPI.getAllAlertes(),
-        siegeAPI.getStatsSiege(),
+        siege.getAllLots(),
+        siege.getAllAlertes(),
+        siege.getStatsSiege(),
       ]);
       setAllLots(lots);
       setAllAlertes(alertes);
@@ -77,27 +80,11 @@ export function useSiege() {
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  return { stats, allLots, allAlertes, loading, error, paysStatus, refetch: fetchAll };
-}
-
-export function useCapteurs(paysId) {
-  const [capteurs, setCapteurs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  }, [siege, accessiblePays]);
 
   useEffect(() => {
-    if (!paysId) return;
-    setLoading(true);
-    PAYS_API[paysId]
-      .getCapteurs()
-      .then((data) => setCapteurs(data || []))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [paysId]);
+    fetchAll();
+  }, [fetchAll]);
 
-  return { capteurs, loading, error };
+  return { stats, allLots, allAlertes, loading, error, paysStatus, refetch: fetchAll };
 }
