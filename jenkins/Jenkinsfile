@@ -36,22 +36,16 @@ pipeline {
         }
 
         stage('Run Python tests') {
-            agent {
-                docker {
-                    image 'python:3.11-slim'
-                    reuseNode true
-                }
-            }
             steps {
                 sh '''
-                    python --version
-                    pip --version
+                    python3 --version
+                    pip3 --version
 
-                    pip install pytest requests paho-mqtt
+                    pip3 install --break-system-packages pytest requests paho-mqtt
 
-                    python Tests/bresil/test_statut_lot.py
-                    python Tests/colombie/test_statut_lot.py
-                    python Tests/equateur/test_statut_lot.py
+                    python3 Tests/bresil/test_statut_lot.py
+                    python3 Tests/colombie/test_statut_lot.py
+                    python3 Tests/equateur/test_statut_lot.py
                 '''
 
                 echo 'Tests Python exécutés pour les 3 pays'
