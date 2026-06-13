@@ -15,13 +15,14 @@ pipeline {
                 sh 'ls -la colombie'
                 sh 'ls -la equateur'
                 sh 'ls -la siege'
+                sh 'ls -la FrontEnd'
+                sh 'ls -la Tests'
                 sh 'ls -la jenkins'
             }
         }
 
         stage('Check tests files') {
             steps {
-                sh 'ls -la Tests'
                 sh 'ls -la Tests/bresil'
                 sh 'ls -la Tests/colombie'
                 sh 'ls -la Tests/equateur'
@@ -30,19 +31,34 @@ pipeline {
                 sh 'test -f Tests/colombie/test_statut_lot.py'
                 sh 'test -f Tests/equateur/test_statut_lot.py'
 
-                echo 'Tests présents pour les 3 pays'
+                echo 'Fichiers de tests présents pour les 3 pays'
+            }
+        }
+
+        stage('Run Python tests') {
+            steps {
+                sh 'python3 --version || python --version'
+                sh 'python3 -m pip install --user pytest requests paho-mqtt || python -m pip install --user pytest requests paho-mqtt'
+
+                sh 'python3 Tests/bresil/test_statut_lot.py || python Tests/bresil/test_statut_lot.py'
+                sh 'python3 Tests/colombie/test_statut_lot.py || python Tests/colombie/test_statut_lot.py'
+                sh 'python3 Tests/equateur/test_statut_lot.py || python Tests/equateur/test_statut_lot.py'
+
+                echo 'Tests Python exécutés pour les 3 pays'
             }
         }
 
         stage('Validate compose files') {
             steps {
                 sh 'find . -name "docker-compose.yml"'
+                sh 'test -f docker-compose.yml'
+                echo 'Fichiers docker-compose détectés'
             }
         }
 
         stage('Archive project info') {
             steps {
-                sh 'find . -maxdepth 2 -type f > project_files.txt'
+                sh 'find . -maxdepth 3 -type f > project_files.txt'
                 archiveArtifacts artifacts: 'project_files.txt', fingerprint: true
             }
         }
