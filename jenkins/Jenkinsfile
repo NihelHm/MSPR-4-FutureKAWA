@@ -36,13 +36,23 @@ pipeline {
         }
 
         stage('Run Python tests') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                    reuseNode true
+                }
+            }
             steps {
-                sh 'python3 --version || python --version'
-                sh 'python3 -m pip install --user pytest requests paho-mqtt || python -m pip install --user pytest requests paho-mqtt'
+                sh '''
+                    python --version
+                    pip --version
 
-                sh 'python3 Tests/bresil/test_statut_lot.py || python Tests/bresil/test_statut_lot.py'
-                sh 'python3 Tests/colombie/test_statut_lot.py || python Tests/colombie/test_statut_lot.py'
-                sh 'python3 Tests/equateur/test_statut_lot.py || python Tests/equateur/test_statut_lot.py'
+                    pip install pytest requests paho-mqtt
+
+                    python Tests/bresil/test_statut_lot.py
+                    python Tests/colombie/test_statut_lot.py
+                    python Tests/equateur/test_statut_lot.py
+                '''
 
                 echo 'Tests Python exécutés pour les 3 pays'
             }
@@ -51,7 +61,7 @@ pipeline {
         stage('Validate compose files') {
             steps {
                 sh 'find . -name "docker-compose.yml"'
-                sh 'test -f docker-compose.yml'
+                sh 'find . -name "docker-compose.yml" | grep -q docker-compose.yml'
                 echo 'Fichiers docker-compose détectés'
             }
         }
