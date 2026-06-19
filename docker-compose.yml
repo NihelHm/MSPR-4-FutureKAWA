@@ -1,0 +1,163 @@
+services:
+
+  frontend:
+    build: ./FrontEnd
+    container_name: frontend_futurekawa
+    ports:
+      - "5173:5173"
+    depends_on:
+      - siege
+
+  siege:
+    build: ./siege
+    container_name: backend_siege
+    environment:
+      URL_BRESIL: http://backend_bresil:8000
+      URL_COLOMBIE: http://backend_colombie:8000
+      URL_EQUATEUR: http://backend_equateur:8000
+
+      DB_HOST: db_siege
+      DB_NAME: bdd_siege
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_PORT: 5432
+
+    ports:
+      - "8003:8000"
+    depends_on:
+      - backend_bresil
+      - backend_colombie
+      - backend_equateur
+      - db_siege
+
+  db_siege:
+    image: postgres:15
+    container_name: db_siege
+    environment:
+      POSTGRES_DB: bdd_siege
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5436:5432"
+    volumes:
+      - ./siege/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend_bresil:
+    build: ./bresil
+    container_name: backend_bresil
+    environment:
+      DB_HOST: db_bresil
+      DB_NAME: bdd_bresil
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_PORT: 5432
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db_bresil
+      - mqtt_bresil
+
+  db_bresil:
+    image: postgres:15
+    container_name: db_bresil
+    environment:
+      POSTGRES_DB: bdd_bresil
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./bresil/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  mqtt_bresil:
+    image: eclipse-mosquitto:2
+    container_name: mqtt_bresil
+    ports:
+      - "1883:1883"
+
+  backend_colombie:
+    build: ./colombie
+    container_name: backend_colombie
+    environment:
+      COUNTRY_NAME: Colombie
+      DB_HOST: db_colombie
+      DB_NAME: bdd_colombie
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_PORT: 5432
+    ports:
+      - "8001:8000"
+    depends_on:
+      - db_colombie
+      - mqtt_colombie
+
+  db_colombie:
+    image: postgres:15
+    container_name: db_colombie
+    environment:
+      POSTGRES_DB: bdd_colombie
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./colombie/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  mqtt_colombie:
+    image: eclipse-mosquitto:2
+    container_name: mqtt_colombie
+    ports:
+      - "1884:1883"
+
+  backend_equateur:
+    build: ./equateur
+    container_name: backend_equateur
+    environment:
+      COUNTRY_NAME: Equateur
+      DB_HOST: db_equateur
+      DB_NAME: bdd_equateur
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_PORT: 5432
+    ports:
+      - "8002:8000"
+    depends_on:
+      - db_equateur
+      - mqtt_equateur
+
+  db_equateur:
+    image: postgres:15
+    container_name: db_equateur
+    environment:
+      POSTGRES_DB: bdd_equateur
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./equateur/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  mqtt_equateur:
+    image: eclipse-mosquitto:2
+    container_name: mqtt_equateur
+    ports:
+      - "1885:1883"
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog_futurekawa
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: futurekawa_jenkins
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+
+volumes:
+  jenkins_home:
