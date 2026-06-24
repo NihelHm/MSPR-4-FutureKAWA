@@ -42,27 +42,31 @@ export const PAYS_IDS = Object.keys(PAYS_CONFIG);
 
 // ==========================================================
 // RÔLES — alignés sur les `role` du backend siège (init.sql)
-// Chaque rôle pays est séparé : un responsable ne voit QUE son pays.
-// `scope: "all"` = accès à tous les pays (direction siège / admin).
+//   scope: "all"  → accès à tous les pays (direction siège)
+//   scope: <pays> → accès à un seul pays (responsable)
+//   scope: "none" → AUCUN accès métier (administrateur fonctionnel)
 // ==========================================================
 export const ROLES = {
   direction_siege: { id: "direction_siege", label: "Direction Siège", icon: "◈", scope: "all" },
-  admin: { id: "admin", label: "Administrateur", icon: "🛡", scope: "all" },
+  admin: { id: "admin", label: "Administrateur", icon: "🛡", scope: "none" },
   responsable_bresil: { id: "responsable_bresil", label: "Responsable Brésil", icon: "🇧🇷", scope: "bresil" },
   responsable_equateur: { id: "responsable_equateur", label: "Responsable Équateur", icon: "🇪🇨", scope: "equateur" },
   responsable_colombie: { id: "responsable_colombie", label: "Responsable Colombie", icon: "🇨🇴", scope: "colombie" },
 };
 
 export function getRoleConfig(role) {
-  return ROLES[role] || { id: role, label: role || "Inconnu", icon: "•", scope: "all" };
+  return ROLES[role] || { id: role, label: role || "Inconnu", icon: "•", scope: "none" };
 }
 
-// Liste des pays accessibles selon le rôle de l'utilisateur
+// Pays accessibles selon le rôle.
+// IMPORTANT : on ne se base PLUS sur is_admin pour ouvrir l'accès métier.
+// Un administrateur (rôle "admin", scope "none") ne voit aucune donnée métier.
 export function getAccessiblePays(user) {
   if (!user) return [];
   const conf = getRoleConfig(user.role);
-  if (conf.scope === "all" || user.is_admin) return PAYS_IDS;
-  return PAYS_IDS.includes(conf.scope) ? [conf.scope] : [];
+  if (conf.scope === "all") return PAYS_IDS;
+  if (PAYS_IDS.includes(conf.scope)) return [conf.scope];
+  return [];
 }
 
 export function canAccessPays(user, paysId) {
@@ -71,6 +75,7 @@ export function canAccessPays(user, paysId) {
 
 export const STATUT_COLORS = {
   "stocké": { bg: "#1B4332", text: "#74C69D", label: "Stocké" },
+  "conforme": { bg: "#1B4332", text: "#74C69D", label: "Conforme" },
   "en alerte": { bg: "#7B2D00", text: "#FF8C42", label: "En alerte" },
   "périmé": { bg: "#3D0000", text: "#FF4D4D", label: "Périmé" },
   "expédié": { bg: "#0D3B66", text: "#64B5F6", label: "Expédié" },

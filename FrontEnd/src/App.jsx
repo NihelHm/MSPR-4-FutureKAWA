@@ -19,21 +19,21 @@ import Admin from "./pages/Admin";
 import { ErrorBox } from "./components/UI";
 import styles from "./App.module.css";
 
-// Garde : l'utilisateur a-t-il accès à ce pays ?
+// Garde : accès à un pays selon le périmètre du rôle.
 function PaysGuard({ children }) {
   const { paysId } = useParams();
   const { user } = useApp();
   if (!canAccessPays(user, paysId)) {
     return (
       <div className={styles.guard}>
-        <ErrorBox message={`Accès refusé : votre rôle ne permet pas de consulter « ${paysId} ».`} />
+        <ErrorBox message={`Accès refusé : votre rôle ne permet pas de consulter ce pays.`} />
       </div>
     );
   }
   return children;
 }
 
-// Garde : réservé aux administrateurs (is_admin)
+// Garde : pages réservées aux administrateurs.
 function AdminGuard({ children }) {
   const { isAdmin } = useApp();
   if (!isAdmin) {
@@ -46,25 +46,37 @@ function AdminGuard({ children }) {
   return children;
 }
 
+// Garde : pages MÉTIER interdites à l'administrateur fonctionnel.
+// Un admin n'a pas de périmètre métier → on le renvoie vers l'administration.
+function MetierGuard({ children }) {
+  const { isAdmin } = useApp();
+  if (isAdmin) return <Navigate to="/admin" replace />;
+  return children;
+}
+
 function ProtectedLayout() {
-  const { user } = useApp();
+  const { user, isAdmin } = useApp();
   if (!user) return <Navigate to="/login" replace />;
+
   return (
     <div className={styles.layout}>
       <Navbar />
       <main className={styles.main}>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/alertes" element={<Alertes />} />
-          <Route path="/reglages" element={<Reglages />} />
-          <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
+          {/* Accueil : siège pour le métier, administration pour l'admin */}
+          <Route path="/" element={isAdmin ? <Navigate to="/admin" replace /> : <Dashboard />} />
 
-          <Route path="/pays/:paysId" element={<PaysGuard><PaysDetail /></PaysGuard>} />
-          <Route path="/pays/:paysId/capteurs" element={<PaysGuard><Capteurs /></PaysGuard>} />
-          <Route path="/pays/:paysId/sites/:siteId" element={<PaysGuard><SiteDetail /></PaysGuard>} />
-          <Route path="/pays/:paysId/lots/nouveau" element={<PaysGuard><LotForm /></PaysGuard>} />
-          <Route path="/pays/:paysId/lots/:lotId" element={<PaysGuard><LotDetail /></PaysGuard>} />
-          <Route path="/pays/:paysId/lots/:lotId/edit" element={<PaysGuard><LotForm /></PaysGuard>} />
+          <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
+          <Route path="/reglages" element={<Reglages />} />
+
+          {/* Routes métier — inaccessibles à l'admin */}
+          <Route path="/alertes" element={<MetierGuard><Alertes /></MetierGuard>} />
+          <Route path="/pays/:paysId" element={<MetierGuard><PaysGuard><PaysDetail /></PaysGuard></MetierGuard>} />
+          <Route path="/pays/:paysId/capteurs" element={<MetierGuard><PaysGuard><Capteurs /></PaysGuard></MetierGuard>} />
+          <Route path="/pays/:paysId/sites/:siteId" element={<MetierGuard><PaysGuard><SiteDetail /></PaysGuard></MetierGuard>} />
+          <Route path="/pays/:paysId/lots/nouveau" element={<MetierGuard><PaysGuard><LotForm /></PaysGuard></MetierGuard>} />
+          <Route path="/pays/:paysId/lots/:lotId" element={<MetierGuard><PaysGuard><LotDetail /></PaysGuard></MetierGuard>} />
+          <Route path="/pays/:paysId/lots/:lotId/edit" element={<MetierGuard><PaysGuard><LotForm /></PaysGuard></MetierGuard>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

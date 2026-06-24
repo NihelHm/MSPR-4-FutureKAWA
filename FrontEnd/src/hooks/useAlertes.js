@@ -1,34 +1,53 @@
 // ==========================================================
 // HOOKS useAlertes + useSiege
+// Source de vérité UNIQUE : les alertes sont CALCULÉES à partir des
+// mesures et de l'âge des lots (mêmes règles partout). Cela garantit la
+// cohérence entre la vue pays, la vue entrepôt, le siège et la page Alertes.
 // ==========================================================
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { PAYS_API, buildSiegeAPI } from "../services/api";
+import {
+  PAYS_API,
+  buildSiegeAPI,
+  chargerDonneesPays,
+  calculerAlertesPays,
+} from "../services/api";
 import { useApp } from "../context/AppContext";
 
+// Alertes d'un pays (paysId fourni) ou consolidées (sans paysId).
 export function useAlertes(paysId) {
   const { accessiblePays } = useApp();
   const [alertes, setAlertes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const cibles = useMemo(
+    () => (paysId ? [paysId] : accessiblePays),
+    [paysId, accessiblePays]
+  );
+
   const fetchAlertes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      if (paysId && PAYS_API[paysId]) {
-        const data = await PAYS_API[paysId].getAlertes();
-        setAlertes((data || []).map((a) => ({ ...a, _pays: paysId })));
-      } else {
-        const siege = buildSiegeAPI(accessiblePays);
-        setAlertes((await siege.getAllAlertes()) || []);
-      }
+      const results = await Promise.allSettled(
+        cibles
+          .filter((id) => PAYS_API[id])
+          .map(async (id) => {
+            const data = await chargerDonneesPays(id);
+            return calculerAlertesPays(id, data);
+          })
+      );
+      const ok = results.filter((r) => r.status === "fulfilled").flatMap((r) => r.value);
+      setAlertes(ok);
+      const ko = results.find((r) => r.status === "rejected");
+      if (ko && ok.length === 0) setError(ko.reason?.message || "Erreur de chargement des alertes.");
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [paysId, accessiblePays]);
+  }, [cibles]);
 
   useEffect(() => {
     fetchAlertes();
@@ -52,7 +71,6 @@ export function useSiege() {
     setLoading(true);
     setError(null);
 
-    // Ping de chaque pays accessible
     const statusMap = {};
     await Promise.allSettled(
       accessiblePays.map(async (paysId) => {

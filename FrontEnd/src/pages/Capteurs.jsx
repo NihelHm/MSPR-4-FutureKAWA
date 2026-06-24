@@ -1,128 +1,180 @@
 // ==========================================================
-// PAGE CAPTEURS — niveau PAYS : tous les capteurs du pays
-// Groupés par type, avec leur lot de rattachement et les courbes.
+// PAGE CAPTEURS — capteurs d'un pays, regroupés par entrepôt
+// - Création d'un capteur (POST /capteurs) — point #12
+// - Garde "bon pays" : vérifie que le backend interrogé sert bien le pays
+//   sélectionné (détecte une inversion de ports/bases) — point #10
 // ==========================================================
 
-import { useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { useSites } from "../hooks/useSites";
 import { useCapteurs } from "../hooks/useCapteurs";
-import { useMesures } from "../hooks/useMesures";
+import { PAYS_API } from "../services/api";
 import { PAYS_CONFIG, CAPTEUR_TYPES } from "../constants/pays";
-import MesureChart from "../components/MesureChart";
-import StatCard from "../components/StatCard";
-import { PageHeader, SectionTitle, Loader, ErrorBox, Grid, Card, Badge } from "../components/UI";
-import styles from "./Capteurs.module.css";
+import { PageHeader, SectionTitle, Loader, ErrorBox, Card, Button, Badge } from "../components/UI";
+
+// Normalise (minuscules + sans accents) pour comparer des noms de pays
+const norm = (s) =>
+  (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 export default function Capteurs() {
   const { paysId } = useParams();
-  const navigate = useNavigate();
   const config = PAYS_CONFIG[paysId];
 
-  const { capteurs, loading, error } = useCapteurs(paysId);
-  const {
-    temperatures, humidites, loading: mesLoading,
-    conditionsIdéales, tolerances,
-  } = useMesures(paysId);
+  const { sites, loading: sitesLoading } = useSites(paysId);
+  const { capteurs, loading: capLoading, error, refetch } = useCapteurs(paysId);
 
-  const capteursTemp = useMemo(() => capteurs.filter((c) => c.type_capteur === "temperature"), [capteurs]);
-  const capteursHum = useMemo(() => capteurs.filter((c) => c.type_capteur === "humidite"), [capteurs]);
-  const nonLies = useMemo(() => capteurs.filter((c) => c.lot_id == null), [capteurs]);
+  // Garde anti-inversion : le backend sert-il bien le pays attendu ?
+  const [mismatch, setMismatch] = useState(null);
+  useEffect(() => {
+    let ok = true;
+    PAYS_API[paysId]
+      .ping()
+      .then((r) => {
+        const servi = r?.message || "";
+        if (ok && config && !norm(servi).includes(norm(config.nom))) {
+          setMismatch(servi);
+        } else if (ok) {
+          setMismatch(null);
+        }
+      })
+      .catch(() => {});
+    return () => { ok = false; };
+  }, [paysId, config]);
+
+  // Création
+  const [form, setForm] = useState({ nom: "", type_capteur: "temperature", site_id: "" });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
+
+  const capteursParSite = useMemo(() => {
+    const map = {};
+    capteurs.forEach((c) => {
+      (map[c.site_id] = map[c.site_id] || []).push(c);
+    });
+    return map;
+  }, [capteurs]);
+
+  const handleCreate = async () => {
+    if (!form.nom.trim()) return setCreateError("Le nom du capteur est obligatoire.");
+    if (!form.site_id) return setCreateError("Veuillez choisir un entrepôt.");
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await PAYS_API[paysId].createCapteur({
+        nom: form.nom.trim(),
+        type_capteur: form.type_capteur,
+        site_id: Number(form.site_id),
+      });
+      setForm({ nom: "", type_capteur: "temperature", site_id: "" });
+      await refetch();
+    } catch (err) {
+      setCreateError(err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
 
   if (!config) return <ErrorBox message={`Pays inconnu : ${paysId}`} />;
-  if (error) return <ErrorBox message={error} />;
 
-  const tempMin = conditionsIdéales ? conditionsIdéales.temperature - tolerances.temperature : undefined;
-  const tempMax = conditionsIdéales ? conditionsIdéales.temperature + tolerances.temperature : undefined;
-  const humMin = conditionsIdéales ? conditionsIdéales.humidite - tolerances.humidite : undefined;
-  const humMax = conditionsIdéales ? conditionsIdéales.humidite + tolerances.humidite : undefined;
+  const input = {
+    width: "100%", padding: "10px 12px", borderRadius: 8,
+    border: "1px solid var(--border, #2a2a2a)", background: "var(--bg-elev, #161616)",
+    color: "inherit",
+  };
 
   return (
-    <div className={styles.page}>
-      <button className={styles.back} onClick={() => navigate(`/pays/${paysId}`)}>
-        ← {config.flag} {config.nom}
-      </button>
+    <div>
+      <PageHeader title={`📡 Capteurs — ${config.flag} ${config.nom}`} sub="Capteurs IoT par entrepôt" />
 
-      <PageHeader title="📡 Capteurs" sub={`${config.flag} ${config.nom}`} />
-
-      <Grid cols={4}>
-        <StatCard label="Capteurs total" value={loading ? "…" : capteurs.length} icon="📡" />
-        <StatCard label="Température" value={capteursTemp.length} icon="🌡" />
-        <StatCard label="Humidité" value={capteursHum.length} icon="💧" />
-        <StatCard
-          label="Non liés à un lot"
-          value={nonLies.length}
-          icon="🔗"
-          variant={nonLies.length ? "alert" : "default"}
+      {mismatch && (
+        <ErrorBox
+          message={`Attention : le backend interrogé pour « ${config.nom} » répond « ${mismatch} ». Les pays/ports sont probablement inversés dans la configuration (.env / docker-compose). Vérifiez VITE_URL_${paysId.toUpperCase()} et le mapping des conteneurs.`}
         />
-      </Grid>
+      )}
+      {error && <ErrorBox message={error} />}
 
-      <section className={styles.section}>
-        <SectionTitle>Liste des capteurs ({capteurs.length})</SectionTitle>
-        {loading ? (
+      {/* Création d'un capteur */}
+      <Card>
+        <SectionTitle>Ajouter un capteur</SectionTitle>
+        {createError && <ErrorBox message={createError} />}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Nom</div>
+            <input style={input} value={form.nom}
+              onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))}
+              placeholder="ex : Capteur Température 2" />
+          </label>
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Type</div>
+            <select style={input} value={form.type_capteur}
+              onChange={(e) => setForm((f) => ({ ...f, type_capteur: e.target.value }))}>
+              <option value="temperature">Température</option>
+              <option value="humidite">Humidité</option>
+            </select>
+          </label>
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Entrepôt</div>
+            <select style={input} value={form.site_id}
+              onChange={(e) => setForm((f) => ({ ...f, site_id: e.target.value }))}>
+              <option value="">— Sélectionner —</option>
+              {sites.map((s) => <option key={s.id} value={s.id}>{s.nom || `Entrepôt #${s.id}`}</option>)}
+            </select>
+          </label>
+          <Button variant="primary" onClick={handleCreate} disabled={creating}>
+            {creating ? "Ajout..." : "＋ Ajouter"}
+          </Button>
+        </div>
+        <p style={{ fontSize: 12, opacity: 0.6, marginTop: 10 }}>
+          Le capteur est installé dans l'entrepôt. Affectez-le ensuite à un lot depuis le formulaire du lot
+          (hiérarchie Entrepôt → Lot → Capteur).
+        </p>
+      </Card>
+
+      <section style={{ marginTop: 24 }}>
+        <SectionTitle>Capteurs installés ({capteurs.length})</SectionTitle>
+        {sitesLoading || capLoading ? (
           <Loader text="Chargement des capteurs..." />
-        ) : capteurs.length === 0 ? (
-          <div className={styles.empty}>Aucun capteur enregistré.</div>
+        ) : sites.length === 0 ? (
+          <div style={{ opacity: 0.6 }}>Aucun entrepôt pour ce pays.</div>
         ) : (
-          <div className={styles.capteurGrid}>
-            {capteurs.map((c) => {
-              const tc = CAPTEUR_TYPES[c.type_capteur] || { icon: "📡", label: c.type_capteur, unit: "" };
-              return (
-                <Card key={c.id} className={styles.capteurCard}>
-                  <div className={styles.capteurHead}>
-                    <span className={styles.capteurIcon}>{tc.icon}</span>
-                    <span className={styles.capteurId}>#{c.id}</span>
+          sites.map((site) => {
+            const liste = capteursParSite[site.id] || [];
+            return (
+              <Card key={site.id} className="" >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <strong>🏭 {site.nom || `Entrepôt #${site.id}`}</strong>
+                  <Link to={`/pays/${paysId}/sites/${site.id}`} style={{ fontSize: 13, opacity: 0.8 }}>
+                    Voir l'entrepôt →
+                  </Link>
+                </div>
+                {liste.length === 0 ? (
+                  <div style={{ opacity: 0.6, fontSize: 14 }}>Aucun capteur installé.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {liste.map((c) => {
+                      const tc = CAPTEUR_TYPES[c.type_capteur] || { icon: "📡", label: c.type_capteur };
+                      return (
+                        <div key={c.id}
+                          style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderTop: "1px solid var(--border,#222)" }}>
+                          <span style={{ fontSize: 18 }}>{tc.icon}</span>
+                          <span style={{ flex: 1 }}>
+                            {c.nom || `Capteur #${c.id}`}{" "}
+                            <span style={{ opacity: 0.6, fontSize: 12 }}>· {tc.label}</span>
+                          </span>
+                          {c.lot_id != null ? (
+                            <Badge variant="success">Affecté au lot #{c.lot_id}</Badge>
+                          ) : (
+                            <Badge variant="default">Non affecté</Badge>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className={styles.capteurNom}>{c.nom || `Capteur ${c.id}`}</div>
-                  <div className={styles.capteurMeta}>
-                    <Badge>{tc.label}</Badge>
-                    {c.site_id != null && <span className={styles.metaTxt}>Site #{c.site_id}</span>}
-                  </div>
-                  <div className={styles.lotLink}>
-                    {c.lot_id != null ? (
-                      <button
-                        className={styles.lotBtn}
-                        onClick={() => navigate(`/pays/${paysId}/lots/${c.lot_id}`)}
-                      >
-                        🔗 Lot #{c.lot_id}
-                      </button>
-                    ) : (
-                      <span className={styles.lotNone}>Non lié à un lot</span>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <section className={styles.section}>
-        <SectionTitle>Historique global du pays</SectionTitle>
-        {mesLoading ? (
-          <Loader text="Chargement des mesures..." />
-        ) : (
-          <div className={styles.chartsGrid}>
-            <Card>
-              <MesureChart
-                data={temperatures}
-                label="Température"
-                unit="°C"
-                color={CAPTEUR_TYPES.temperature.color}
-                seuilMin={tempMin}
-                seuilMax={tempMax}
-              />
-            </Card>
-            <Card>
-              <MesureChart
-                data={humidites}
-                label="Humidité"
-                unit="%"
-                color={CAPTEUR_TYPES.humidite.color}
-                seuilMin={humMin}
-                seuilMax={humMax}
-              />
-            </Card>
-          </div>
+                )}
+              </Card>
+            );
+          })
         )}
       </section>
     </div>

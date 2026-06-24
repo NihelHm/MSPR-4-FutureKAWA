@@ -59,7 +59,7 @@ export default function PaysDetail() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title={`${config.flag} ${config.nom}`} sub={`Backend local · ${config.baseUrl}`} />
+      <PageHeader title={`${config.flag} ${config.nom}`} />
 
       {(sitesError || mesError) && (
         <ErrorBox message="Impossible de joindre le backend local. Vérifiez que Docker est démarré." />

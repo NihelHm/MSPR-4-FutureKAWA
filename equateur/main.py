@@ -120,6 +120,7 @@ class CapteurCreate(BaseModel):
     nom: str
     type_capteur: str
     site_id: int
+    lot_id: Optional[int] = None 
 
 
 class CapteurUpdate(BaseModel):
@@ -127,7 +128,9 @@ class CapteurUpdate(BaseModel):
     type_capteur: Optional[str] = None
     site_id: Optional[int] = None
 
-
+class CapteurLotAssign(BaseModel):
+    lot_id: Optional[int] = None
+    
 class TemperatureCreate(BaseModel):
     valeur: float
     date_mesure: Optional[str] = None
@@ -726,6 +729,37 @@ def update_capteur(
         )
     }
 
+@app.put("/capteurs/{capteur_id}/lot")
+def affecter_capteur_lot(capteur_id: int, data: CapteurLotAssign):
+    """
+    Affecte le capteur au lot data.lot_id, ou le détache si lot_id est null.
+    On écrit directement en SQL pour pouvoir poser la valeur NULL
+    (update_item() générique ignore les champs None).
+    """
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute(
+        """
+        UPDATE capteur
+        SET lot_id = %s
+        WHERE id = %s
+        RETURNING *;
+        """,
+        (data.lot_id, capteur_id),
+    )
+    capteur = cursor.fetchone()
+    conn.commit()
+    cursor.close()
+    conn.close()
+ 
+    if not capteur:
+        raise HTTPException(status_code=404, detail="Capteur introuvable")
+ 
+    return {
+        "message": "Capteur détaché du lot" if data.lot_id is None else "Capteur affecté au lot",
+        "capteur": capteur,
+    }
+ 
 
 @app.delete("/capteurs/{capteur_id}")
 def delete_capteur(capteur_id: int):

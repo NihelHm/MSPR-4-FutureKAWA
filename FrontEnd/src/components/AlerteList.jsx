@@ -1,59 +1,65 @@
 // ==========================================================
-// COMPOSANT ALERTELIST
+// COMPOSANT ALERTELIST — affiche une liste d'alertes calculées
+// Forme d'une alerte : { type, message, _pays, site_id?, lot_id?, date_alerte }
 // ==========================================================
 
-import { ALERTE_TYPES, PAYS_CONFIG } from "../constants/pays";
-import styles from "./AlerteList.module.css";
+import { Link } from "react-router-dom";
+import { PAYS_CONFIG, ALERTE_TYPES } from "../constants/pays";
 
-export default function AlerteList({ alertes, showPays = false, limit }) {
-  const displayed = limit ? alertes.slice(0, limit) : alertes;
+function fmt(d) {
+  if (!d) return "";
+  const dt = new Date(d);
+  return isNaN(dt) ? "" : dt.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
 
-  if (!alertes || alertes.length === 0) {
+export default function AlerteList({ alertes = [], showPays = false, limit }) {
+  const liste = limit ? alertes.slice(0, limit) : alertes;
+
+  if (liste.length === 0) {
     return (
-      <div className={styles.empty}>
-        <span className={styles.emptyIcon}>✓</span>
-        <span>Aucune alerte active</span>
+      <div style={{ opacity: 0.6, padding: 16, border: "1px dashed var(--border,#222)", borderRadius: 12 }}>
+        ✓ Aucune alerte active. Toutes les conditions sont dans les plages idéales.
       </div>
     );
   }
 
   return (
-    <div className={styles.list}>
-      {displayed.map((alerte, idx) => {
-        const typeConfig = ALERTE_TYPES[alerte.type] || { icon: "⚡", label: alerte.type };
-        const paysConfig = alerte._pays ? PAYS_CONFIG[alerte._pays] : null;
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {liste.map((a) => {
+        const t = ALERTE_TYPES[a.type] || { icon: "⚠", label: a.type };
+        const pays = PAYS_CONFIG[a._pays];
+        const cibleLink = a.lot_id != null
+          ? `/pays/${a._pays}/lots/${a.lot_id}`
+          : a.site_id != null
+          ? `/pays/${a._pays}/sites/${a.site_id}`
+          : null;
 
         return (
-          <div key={`${alerte._pays ?? "x"}-${alerte.id ?? idx}`} className={styles.item}>
-            <div className={styles.itemIcon}>{typeConfig.icon}</div>
-            <div className={styles.itemBody}>
-              <div className={styles.itemHeader}>
-                <span className={styles.itemType}>{typeConfig.label}</span>
-                {showPays && paysConfig && (
-                  <span className={styles.itemPays}>{paysConfig.flag} {paysConfig.nom}</span>
-                )}
-                <span className={styles.itemDate}>
-                  {alerte.date_alerte
-                    ? new Date(alerte.date_alerte).toLocaleString("fr-FR", {
-                        day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
-                      })
-                    : "—"}
-                </span>
+          <div key={a.id}
+            style={{
+              display: "flex", gap: 12, alignItems: "flex-start", padding: "12px 14px",
+              borderRadius: 10, border: "1px solid rgba(255,77,77,.25)", background: "rgba(255,77,77,.06)",
+            }}>
+            <span style={{ fontSize: 18 }}>{t.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>
+                {t.label}
+                {showPays && pays && <span style={{ opacity: 0.7, fontWeight: 400 }}> · {pays.flag} {pays.nom}</span>}
               </div>
-              <div className={styles.itemMessage}>{alerte.message}</div>
-              {alerte.valeur !== null && alerte.valeur !== undefined && (
-                <div className={styles.itemValues}>
-                  <span>Valeur : <strong>{alerte.valeur}</strong></span>
-                  {alerte.seuil && <span>Seuil : <strong>{alerte.seuil}</strong></span>}
-                </div>
-              )}
+              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>{a.message}</div>
+              <div style={{ fontSize: 11, opacity: 0.5, marginTop: 4 }}>
+                {fmt(a.date_alerte)}
+                {cibleLink && (
+                  <>
+                    {" · "}
+                    <Link to={cibleLink} style={{ color: "inherit" }}>voir le détail →</Link>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         );
       })}
-      {limit && alertes.length > limit && (
-        <div className={styles.more}>+ {alertes.length - limit} alertes supplémentaires</div>
-      )}
     </div>
   );
 }

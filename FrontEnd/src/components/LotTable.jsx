@@ -1,83 +1,98 @@
 // ==========================================================
-// COMPOSANT LOTTABLE
+// COMPOSANT LOTTABLE — liste de lots (FIFO) avec capteurs & alertes
+// Props :
+//   lots          : tableau de lots
+//   paysId        : pays courant (si absent, on tente lot._pays)
+//   capteursMap   : { [lotId]: nbCapteursAffectés }
+//   alerteLotIds  : Set des ids de lots en alerte (calculés)
+//   showPays      : affiche une colonne Pays (vue siège)
 // ==========================================================
 
-import { useNavigate } from "react-router-dom";
-import { STATUT_COLORS } from "../constants/pays";
-import styles from "./LotTable.module.css";
+import { Link } from "react-router-dom";
+import { PAYS_CONFIG, STATUT_COLORS } from "../constants/pays";
 
-function getAge(dateStockage) {
-  if (!dateStockage) return null;
-  const diff = Date.now() - new Date(dateStockage).getTime();
-  return Math.floor(diff / (1000 * 60 * 60 * 24));
+function ageJours(dateStr) {
+  if (!dateStr) return null;
+  return Math.floor((new Date() - new Date(dateStr)) / 86400000);
+}
+function fmtDate(d) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  return isNaN(dt) ? "—" : dt.toLocaleDateString("fr-FR");
 }
 
-function AgeBadge({ jours }) {
-  if (jours === null) return <span className={styles.ageMuted}>—</span>;
-  const variant = jours > 365 ? "danger" : jours > 300 ? "warning" : "ok";
-  return <span className={`${styles.ageBadge} ${styles[variant]}`}>{jours}j</span>;
-}
+export default function LotTable({ lots = [], paysId, capteursMap = {}, alerteLotIds, showPays = false }) {
+  const alerteSet = alerteLotIds instanceof Set ? alerteLotIds : new Set(alerteLotIds || []);
 
-function StatutBadge({ statut }) {
-  const config = STATUT_COLORS[statut] || { bg: "#222", text: "#aaa", label: statut };
-  return (
-    <span className={styles.statut} style={{ background: config.bg, color: config.text }}>
-      {config.label}
-    </span>
-  );
-}
+  // FIFO : plus anciens d'abord
+  const rows = [...lots].sort((a, b) => (a.date_stockage || "").localeCompare(b.date_stockage || ""));
 
-export default function LotTable({ lots, paysId, showPays = false, capteursMap = null }) {
-  const navigate = useNavigate();
+  const th = { textAlign: "left", padding: "10px 12px", fontSize: 11, letterSpacing: ".05em", textTransform: "uppercase", opacity: 0.6 };
+  const td = { padding: "12px", borderTop: "1px solid var(--border, #222)", fontSize: 14 };
 
-  if (!lots || lots.length === 0) {
-    return <div className={styles.empty}>Aucun lot trouvé</div>;
+  if (rows.length === 0) {
+    return <div style={{ opacity: 0.6, padding: 16 }}>Aucun lot.</div>;
   }
 
-  const showCapteurs = capteursMap !== null;
-
   return (
-    <div className={styles.wrapper}>
-      <table className={styles.table}>
+    <div style={{ overflowX: "auto", border: "1px solid var(--border, #222)", borderRadius: 12 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>
-            <th>Référence</th>
-            {showPays && <th>Pays</th>}
-            <th>Date stockage</th>
-            <th>Ancienneté</th>
-            <th>Statut</th>
-            <th>Site</th>
-            {showCapteurs && <th>Capteurs</th>}
-            <th></th>
+            <th style={th}>Référence</th>
+            {showPays && <th style={th}>Pays</th>}
+            <th style={th}>Date stockage</th>
+            <th style={th}>Ancienneté</th>
+            <th style={th}>Statut</th>
+            <th style={th}>Entrepôt</th>
+            <th style={th}>Capteurs</th>
           </tr>
         </thead>
         <tbody>
-          {lots.map((lot) => {
-            const age = getAge(lot.date_stockage);
-            const pays = lot._pays || paysId;
-            const nbCapteurs = capteursMap ? (capteursMap[lot.id] ?? 0) : null;
+          {rows.map((lot) => {
+            const pid = paysId || lot._pays;
+            const pays = PAYS_CONFIG[pid];
+            const age = ageJours(lot.date_stockage);
+            const enAlerte = alerteSet.has(lot.id);
+            const statutAffiche = enAlerte && lot.statut === "stocké" ? "en alerte" : (lot.statut || "stocké");
+            const sc = STATUT_COLORS[statutAffiche] || STATUT_COLORS["stocké"];
+            const nbCapteurs = capteursMap[lot.id] || 0;
+
             return (
-              <tr
-                key={`${pays}-${lot.id}`}
-                className={styles.row}
-                onClick={() => navigate(`/pays/${pays}/lots/${lot.id}`)}
-              >
-                <td className={styles.ref}>{lot.reference}</td>
-                {showPays && <td className={styles.pays}>{pays}</td>}
-                <td className={styles.date}>
-                  {lot.date_stockage ? new Date(lot.date_stockage).toLocaleDateString("fr-FR") : "—"}
+              <tr key={`${pid}-${lot.id}`} style={{ background: enAlerte ? "rgba(255,77,77,.06)" : "transparent" }}>
+                <td style={td}>
+                  <Link to={`/pays/${pid}/lots/${lot.id}`} style={{ fontWeight: 700, color: "inherit" }}>
+                    {lot.reference || `#${lot.id}`}
+                  </Link>
                 </td>
-                <td><AgeBadge jours={age} /></td>
-                <td><StatutBadge statut={lot.statut} /></td>
-                <td className={styles.site}>Site #{lot.site_id}</td>
-                {showCapteurs && (
-                  <td>
-                    <span className={`${styles.capteurs} ${nbCapteurs === 0 ? styles.capteursEmpty : ""}`}>
-                      📡 {nbCapteurs}
+                {showPays && <td style={td}>{pays ? `${pays.flag} ${pays.nom}` : pid}</td>}
+                <td style={td}>{fmtDate(lot.date_stockage)}</td>
+                <td style={td}>
+                  {age == null ? "—" : (
+                    <span style={{
+                      padding: "2px 8px", borderRadius: 999, fontSize: 12,
+                      background: age > 365 ? "rgba(255,77,77,.15)" : "rgba(116,198,157,.15)",
+                      color: age > 365 ? "#ff6b6b" : "#74C69D",
+                    }}>
+                      {age} j{age > 365 ? " ⚠" : ""}
                     </span>
-                  </td>
-                )}
-                <td className={styles.arrow}>→</td>
+                  )}
+                </td>
+                <td style={td}>
+                  <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12, background: sc.bg, color: sc.text }}>
+                    {sc.label}
+                  </span>
+                </td>
+                <td style={{ ...td, opacity: 0.8 }}>
+                  {lot.site_id != null ? (
+                    <Link to={`/pays/${pid}/sites/${lot.site_id}`} style={{ color: "inherit" }}>
+                      Entrepôt #{lot.site_id}
+                    </Link>
+                  ) : "—"}
+                </td>
+                <td style={td}>
+                  <span title="Capteurs affectés à ce lot">📡 {nbCapteurs}</span>
+                </td>
               </tr>
             );
           })}

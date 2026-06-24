@@ -1,7 +1,8 @@
 // ==========================================================
 // PAGE LOT FORM — création / édition d'un lot
-// - préremplit le site via ?site=<id>
-// - permet de LIER des capteurs du site au lot (capteur.lot_id)
+// - préremplit l'entrepôt via ?site=<id>
+// - permet d'AFFECTER des capteurs de l'entrepôt au lot (capteur.lot_id)
+//   conformément à la hiérarchie Site → Lot → Capteur.
 // ==========================================================
 
 import { useState, useEffect, useMemo } from "react";
@@ -14,7 +15,7 @@ import { PAYS_CONFIG, CAPTEUR_TYPES } from "../constants/pays";
 import { PageHeader, Loader, ErrorBox, Card, Button } from "../components/UI";
 import styles from "./LotForm.module.css";
 
-const STATUTS = ["stocké", "en alerte", "périmé", "expédié"];
+const STATUTS = ["stocké", "expédié"]; // "en alerte" / "périmé" sont CALCULÉS par le backend
 
 export default function LotForm() {
   const { paysId, lotId } = useParams();
@@ -36,75 +37,68 @@ export default function LotForm() {
     statut: "stocké",
     site_id: siteFromQuery || "",
   });
-  // ids des capteurs sélectionnés (à lier au lot)
   const [selectedCapteurs, setSelectedCapteurs] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  // Pré-remplissage en édition
   useEffect(() => {
     if (isEdit && lot) {
       setForm({
         reference: lot.reference || "",
         date_reception: (lot.date_reception || "").slice(0, 10),
         date_stockage: (lot.date_stockage || "").slice(0, 10),
-        statut: lot.statut || "stocké",
+        statut: STATUTS.includes(lot.statut) ? lot.statut : "stocké",
         site_id: lot.site_id != null ? String(lot.site_id) : "",
       });
     }
   }, [isEdit, lot]);
 
-  // En édition : capteurs déjà liés au lot
+  // En édition : capteurs déjà affectés à ce lot
   useEffect(() => {
     if (isEdit && lotId && capteurs.length) {
-      setSelectedCapteurs(
-        capteurs.filter((c) => String(c.lot_id) === String(lotId)).map((c) => c.id)
-      );
+      setSelectedCapteurs(capteurs.filter((c) => String(c.lot_id) === String(lotId)).map((c) => c.id));
     }
   }, [isEdit, lotId, capteurs]);
 
-  // Capteurs du site choisi (ou tous si aucun site sélectionné)
+  // Capteurs disponibles dans l'entrepôt choisi
   const capteursDuSite = useMemo(() => {
-    if (!form.site_id) return capteurs;
+    if (!form.site_id) return [];
     return capteurs.filter((c) => String(c.site_id) === String(form.site_id));
   }, [capteurs, form.site_id]);
 
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const toggleCapteur = (id) =>
+    setSelectedCapteurs((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  const toggleCapteur = (id) => {
-    setSelectedCapteurs((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
-  // Synchronise les liaisons capteur ↔ lot après sauvegarde
+  // Affecte / retire les capteurs au lot via la route dédiée /capteurs/{id}/lot
   const syncCapteurs = async (targetLotId) => {
     const api = PAYS_API[paysId];
     const dejaLies = capteurs.filter((c) => String(c.lot_id) === String(targetLotId)).map((c) => c.id);
     const aLier = selectedCapteurs.filter((id) => !dejaLies.includes(id));
     const aDelier = dejaLies.filter((id) => !selectedCapteurs.includes(id));
     await Promise.all([
-      ...aLier.map((id) => api.linkCapteurToLot(id, targetLotId)),
+      ...aLier.map((id) => api.linkCapteurToLot(id, Number(targetLotId))),
       ...aDelier.map((id) => api.unlinkCapteur(id)),
     ]);
   };
 
   const handleSubmit = async () => {
+    if (!form.reference.trim()) return setError("La référence du lot est obligatoire.");
+    if (!form.site_id) return setError("Veuillez sélectionner un entrepôt.");
     setSaving(true);
     setError(null);
     try {
       const payload = {
-        reference: form.reference,
+        reference: form.reference.trim(),
         date_reception: form.date_reception || null,
         date_stockage: form.date_stockage || null,
         statut: form.statut,
-        site_id: form.site_id ? Number(form.site_id) : null,
+        site_id: Number(form.site_id),
       };
 
       let targetLotId = lotId;
-      if (isEdit) {
-        await updateLot(lotId, payload);
-      } else {
+      if (isEdit) await updateLot(lotId, payload);
+      else {
         const res = await createLot(payload);
         targetLotId = res?.lot?.id ?? res?.id;
       }
@@ -112,9 +106,10 @@ export default function LotForm() {
       if (targetLotId != null) {
         await syncCapteurs(targetLotId);
         await refetchCapteurs();
+        try { await PAYS_API[paysId].recalculerStatutLot(targetLotId); } catch { /* non bloquant */ }
       }
 
-      navigate(form.site_id ? `/pays/${paysId}/sites/${form.site_id}` : `/pays/${paysId}`);
+      navigate(`/pays/${paysId}/sites/${form.site_id}`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -139,83 +134,60 @@ export default function LotForm() {
       <Card>
         <div className={styles.formGrid}>
           <Field label="Référence">
-            <input
-              className={styles.input}
-              value={form.reference}
-              onChange={(e) => setField("reference", e.target.value)}
-              placeholder="ex : LOT-BR-2026-001"
-            />
+            <input className={styles.input} value={form.reference}
+              onChange={(e) => setField("reference", e.target.value)} placeholder="ex : LOT-BR-2026-001" />
           </Field>
-
-          <Field label="Site / Entrepôt">
-            <select
-              className={styles.input}
-              value={form.site_id}
-              onChange={(e) => setField("site_id", e.target.value)}
-            >
+          <Field label="Entrepôt">
+            <select className={styles.input} value={form.site_id} onChange={(e) => setField("site_id", e.target.value)}>
               <option value="">— Sélectionner —</option>
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nom || `Site #${s.id}`}
-                </option>
-              ))}
+              {sites.map((s) => <option key={s.id} value={s.id}>{s.nom || `Entrepôt #${s.id}`}</option>)}
             </select>
           </Field>
-
           <Field label="Date de réception">
-            <input
-              type="date"
-              className={styles.input}
-              value={form.date_reception}
-              onChange={(e) => setField("date_reception", e.target.value)}
-            />
+            <input type="date" className={styles.input} value={form.date_reception}
+              onChange={(e) => setField("date_reception", e.target.value)} />
           </Field>
-
           <Field label="Date de stockage">
-            <input
-              type="date"
-              className={styles.input}
-              value={form.date_stockage}
-              onChange={(e) => setField("date_stockage", e.target.value)}
-            />
+            <input type="date" className={styles.input} value={form.date_stockage}
+              onChange={(e) => setField("date_stockage", e.target.value)} />
           </Field>
-
           <Field label="Statut">
-            <select
-              className={styles.input}
-              value={form.statut}
-              onChange={(e) => setField("statut", e.target.value)}
-            >
-              {STATUTS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
+            <select className={styles.input} value={form.statut} onChange={(e) => setField("statut", e.target.value)}>
+              {STATUTS.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </Field>
         </div>
       </Card>
 
-      {/* Liaison des capteurs */}
+      {/* Affectation des capteurs au lot (Site → Lot → Capteur) */}
       <Card className={styles.capteurCard}>
-        <h3 className={styles.subTitle}>Capteurs liés au lot</h3>
+        <h3 className={styles.subTitle}>Capteurs surveillant ce lot</h3>
         <p className={styles.subHint}>
-          Cochez les capteurs à associer à ce lot{form.site_id ? " (capteurs du site sélectionné)" : ""}.
+          {form.site_id
+            ? "Cochez les capteurs de l'entrepôt qui surveillent ce lot. Leurs mesures alimenteront les conditions et les alertes du lot."
+            : "Sélectionnez d'abord un entrepôt pour voir ses capteurs."}
         </p>
-        {capLoading ? (
+        {!form.site_id ? null : capLoading ? (
           <Loader text="Chargement des capteurs..." />
         ) : capteursDuSite.length === 0 ? (
-          <div className={styles.empty}>Aucun capteur disponible.</div>
+          <div className={styles.empty}>
+            Aucun capteur installé sur cet entrepôt. Ajoutez-en depuis la page « Capteurs ».
+          </div>
         ) : (
           <div className={styles.capteurGrid}>
             {capteursDuSite.map((c) => {
               const tc = CAPTEUR_TYPES[c.type_capteur] || { icon: "📡", label: c.type_capteur };
               const checked = selectedCapteurs.includes(c.id);
+              const prisAilleurs = c.lot_id != null && String(c.lot_id) !== String(lotId);
               return (
                 <label key={c.id} className={`${styles.capteurItem} ${checked ? styles.capteurChecked : ""}`}>
                   <input type="checkbox" checked={checked} onChange={() => toggleCapteur(c.id)} />
                   <span className={styles.capteurIcon}>{tc.icon}</span>
                   <span className={styles.capteurNom}>
                     {c.nom || `Capteur #${c.id}`}
-                    <span className={styles.capteurType}>{tc.label}</span>
+                    <span className={styles.capteurType}>
+                      {tc.label}{prisAilleurs ? " · déjà affecté à un autre lot" : ""}
+                    </span>
                   </span>
                 </label>
               );

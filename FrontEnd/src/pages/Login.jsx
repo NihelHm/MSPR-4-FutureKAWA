@@ -2,20 +2,26 @@
 // PAGE LOGIN — connexion réelle (backend siège, JWT)
 // ==========================================================
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { getRoleConfig } from "../constants/pays";
+import { authAPI } from "../services/api";
 import styles from "./Login.module.css";
 
-// Comptes de démonstration (emails issus de init.sql — mot de passe à saisir)
-const DEMO_USERS = [
-  { email: "admin@futurekawa.com", label: "🛡 Administrateur" },
-  { email: "m.dubois@futurekawa.com", label: "◈ Direction Siège" },
-  { email: "c.silva@futurekawa.com", label: "🇧🇷 Responsable Brésil" },
-  { email: "a.torres@futurekawa.com", label: "🇪🇨 Responsable Équateur" },
-  { email: "j.reyes@futurekawa.com", label: "🇨🇴 Responsable Colombie" },
-];
+// Affichage des comptes de démonstration.
+// En contexte métier réel, laisser à false : on ne liste pas les comptes.
+// En soutenance/démo, passer à true → la liste est récupérée dynamiquement
+// depuis l'API (donc toujours à jour, y compris après création d'un compte).
+const AFFICHER_COMPTES_DEMO = false;
+
+const ICONE_ROLE = {
+  admin: "🛡",
+  direction_siege: "◈",
+  responsable_bresil: "🇧🇷",
+  responsable_equateur: "🇪🇨",
+  responsable_colombie: "🇨🇴",
+};
 
 export default function Login() {
   const { login } = useApp();
@@ -24,10 +30,26 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [comptes, setComptes] = useState([]);
+
+  useEffect(() => {
+    if (!AFFICHER_COMPTES_DEMO) return;
+    authAPI
+      .listPublic()
+      .then((users) =>
+        setComptes(
+          (users || []).map((u) => ({
+            email: u.email,
+            label: `${ICONE_ROLE[u.role] || "•"} ${getRoleConfig(u.role).label}`,
+          }))
+        )
+      )
+      .catch(() => setComptes([]));
+  }, []);
 
   const handleSubmit = async () => {
     if (!email || !password) {
-      setError("Email et mot de passe requis.");
+      setError("Veuillez renseigner votre email et votre mot de passe.");
       return;
     }
     setLoading(true);
@@ -35,10 +57,14 @@ export default function Login() {
     try {
       const user = await login(email, password);
       const conf = getRoleConfig(user.role);
-      const cible = conf.scope && conf.scope !== "all" ? `/pays/${conf.scope}` : "/";
+      // Un administrateur n'a pas de données métier : on l'envoie vers l'administration.
+      let cible = "/";
+      if (user.is_admin) cible = "/admin";
+      else if (conf.scope && conf.scope !== "all") cible = `/pays/${conf.scope}`;
       navigate(cible);
     } catch (err) {
-      setError(err.message || "Échec de la connexion.");
+      // err.message est déjà un message métier (api.js ne fuit plus la route).
+      setError(err.message || "La connexion a échoué. Réessayez.");
     } finally {
       setLoading(false);
     }
@@ -62,9 +88,9 @@ export default function Login() {
           </p>
           <div className={styles.features}>
             {[
-              { icon: "📦", label: "Suivi des lots & sites en temps réel" },
-              { icon: "🌡", label: "Monitoring IoT — capteurs par lot" },
-              { icon: "⚠", label: "Alertes qualité automatiques" },
+              { icon: "📦", label: "Suivi des lots & entrepôts en temps réel" },
+              { icon: "🌡", label: "Monitoring IoT — capteurs par entrepôt" },
+              { icon: "⚠", label: "Alertes qualité & péremption automatiques" },
               { icon: "🛡", label: "Administration & rôles par pays" },
             ].map((f) => (
               <div key={f.label} className={styles.feature}>
@@ -122,19 +148,22 @@ export default function Login() {
             )}
           </button>
 
-          <div className={styles.divider}><span>comptes de démonstration</span></div>
-
-          <div className={styles.demoList}>
-            {DEMO_USERS.map((u) => (
-              <button key={u.email} className={styles.demoBtn} onClick={() => setEmail(u.email)}>
-                <span className={styles.demoLabel}>{u.label}</span>
-                <span className={styles.demoEmail}>{u.email}</span>
-              </button>
-            ))}
-          </div>
-          <p className={styles.demoHint}>
-            Cliquez pour pré-remplir l'email, puis saisissez le mot de passe défini en base.
-          </p>
+          {AFFICHER_COMPTES_DEMO && comptes.length > 0 && (
+            <>
+              <div className={styles.divider}><span>comptes de démonstration</span></div>
+              <div className={styles.demoList}>
+                {comptes.map((u) => (
+                  <button key={u.email} className={styles.demoBtn} onClick={() => setEmail(u.email)}>
+                    <span className={styles.demoLabel}>{u.label}</span>
+                    <span className={styles.demoEmail}>{u.email}</span>
+                  </button>
+                ))}
+              </div>
+              <p className={styles.demoHint}>
+                Cliquez pour pré-remplir l'email, puis saisissez votre mot de passe.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

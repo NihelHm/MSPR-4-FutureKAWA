@@ -1,6 +1,6 @@
 // ==========================================================
 // PAGE ALERTES — consolidation des alertes des pays accessibles
-// Filtre par pays restreint au périmètre de l'utilisateur.
+// Source UNIQUE : alertes calculées (mêmes règles que les vues pays/entrepôt).
 // ==========================================================
 
 import { useState, useMemo } from "react";
@@ -22,7 +22,6 @@ export default function Alertes() {
     return alertes.filter((a) => a._pays === filtrePays);
   }, [alertes, filtrePays]);
 
-  // Comptage par type
   const parType = useMemo(() => {
     const acc = { temperature: 0, humidite: 0, peremption: 0 };
     alertes.forEach((a) => {
@@ -35,18 +34,11 @@ export default function Alertes() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="⚠ Alertes"
-        sub="Anomalies détectées sur les pays de votre périmètre"
-      />
+      <PageHeader title="⚠ Alertes" sub="Anomalies détectées sur votre périmètre" />
 
       <Grid cols={4}>
-        <StatCard
-          label="Alertes actives"
-          value={loading ? "…" : alertes.length}
-          icon="⚠"
-          variant={alertes.length ? "alert" : "default"}
-        />
+        <StatCard label="Alertes actives" value={loading ? "…" : alertes.length} icon="⚠"
+          variant={alertes.length ? "alert" : "default"} />
         <StatCard label={ALERTE_TYPES.temperature.label} value={parType.temperature} icon={ALERTE_TYPES.temperature.icon} />
         <StatCard label={ALERTE_TYPES.humidite.label} value={parType.humidite} icon={ALERTE_TYPES.humidite.icon} />
         <StatCard label={ALERTE_TYPES.peremption.label} value={parType.peremption} icon={ALERTE_TYPES.peremption.icon} />
@@ -81,7 +73,7 @@ export default function Alertes() {
         </SectionTitle>
 
         {loading ? (
-          <Loader text="Chargement des alertes..." />
+          <Loader text="Analyse des conditions et des lots..." />
         ) : (
           <AlerteList alertes={alertesFiltrees} showPays={filtrePays === "tous"} />
         )}

@@ -1,16 +1,11 @@
 // ==========================================================
-// COMPOSANT NAVBAR — filtré par rôle + lien admin + profil
+// COMPOSANT NAVBAR — filtré par rôle + profil + déconnexion visible
 // ==========================================================
 
 import { NavLink, useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { PAYS_CONFIG } from "../constants/pays";
 import styles from "./Navbar.module.css";
-
-const NAV_GLOBAL = [
-  { to: "/", label: "Siège", icon: "◈", end: true },
-  { to: "/alertes", label: "Alertes", icon: "⚠" },
-];
 
 export default function Navbar() {
   const { user, logout, roleConfig, accessiblePays, isAdmin, theme, toggleTheme } = useApp();
@@ -27,6 +22,9 @@ export default function Navbar() {
     navigate("/login");
   };
 
+  const linkCls = ({ isActive }) => `${styles.link} ${isActive ? styles.active : ""}`;
+  const subCls = ({ isActive }) => `${styles.subLink} ${isActive ? styles.active : ""}`;
+
   return (
     <nav className={styles.nav}>
       <div className={styles.brand}>
@@ -37,93 +35,93 @@ export default function Navbar() {
         </div>
       </div>
 
-      <div className={styles.section}>
-        <div className={styles.sectionLabel}>Global</div>
-        {NAV_GLOBAL.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ""}`}
-          >
-            <span className={styles.icon}>{item.icon}</span>
-            {item.label}
-          </NavLink>
-        ))}
-        {isAdmin && (
-          <NavLink
-            to="/admin"
-            className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ""}`}
-          >
-            <span className={styles.icon}>🛡</span>
-            Administration
-          </NavLink>
+      {/* Navigation : MÉTIER pour les non-admins, ADMINISTRATION pour l'admin */}
+      <div className={styles.navScroll}>
+        {isAdmin ? (
+          <div className={styles.section}>
+            <div className={styles.sectionLabel}>Administration</div>
+            <NavLink to="/admin" className={linkCls}>
+              <span className={styles.icon}>🛡</span> Utilisateurs
+            </NavLink>
+          </div>
+        ) : (
+          <>
+            <div className={styles.section}>
+              <div className={styles.sectionLabel}>Global</div>
+              <NavLink to="/" end className={linkCls}>
+                <span className={styles.icon}>◈</span> Siège
+              </NavLink>
+              <NavLink to="/alertes" className={linkCls}>
+                <span className={styles.icon}>⚠</span> Alertes
+              </NavLink>
+            </div>
+
+            <div className={styles.section}>
+              <div className={styles.sectionLabel}>
+                {accessiblePays.length > 1 ? "Par pays" : "Mon pays"}
+              </div>
+              {paysVisibles.map((pays) => (
+                <div key={pays.id} className={styles.paysGroup}>
+                  <NavLink to={`/pays/${pays.id}`} end className={linkCls}>
+                    <span className={styles.icon}>{pays.flag}</span> {pays.nom}
+                  </NavLink>
+                   <NavLink to={`/pays/${pays.id}/lots/nouveau`} className={subCls}>
+                    <span className={styles.icon}>＋</span> Nouveau lot
+                  </NavLink>
+                  <NavLink to={`/pays/${pays.id}/capteurs`} className={subCls}>
+                    <span className={styles.icon}>📡</span> Capteurs
+                  </NavLink>
+                 
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
-      <div className={styles.section}>
-        <div className={styles.sectionLabel}>
-          {accessiblePays.length > 1 ? "Par pays" : "Mon pays"}
-        </div>
-        {paysVisibles.map((pays) => (
-          <div key={pays.id} className={styles.paysGroup}>
-            <NavLink
-              to={`/pays/${pays.id}`}
-              end
-              className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ""}`}
-            >
-              <span className={styles.icon}>{pays.flag}</span>
-              {pays.nom}
-            </NavLink>
-            <NavLink
-              to={`/pays/${pays.id}/capteurs`}
-              className={({ isActive }) => `${styles.subLink} ${isActive ? styles.active : ""}`}
-            >
-              <span className={styles.icon}>📡</span>
-              Capteurs
-            </NavLink>
-            <NavLink
-              to={`/pays/${pays.id}/lots/nouveau`}
-              className={({ isActive }) => `${styles.subLink} ${isActive ? styles.active : ""}`}
-            >
-              <span className={styles.icon}>＋</span>
-              Nouveau lot
-            </NavLink>
-          </div>
-        ))}
-      </div>
-
-      <div className={styles.bottom}>
-        <button className={styles.themeToggle} onClick={toggleTheme} title="Changer le thème">
-          <span>{theme === "dark" ? "☀" : "◗"}</span>
-          <span>{theme === "dark" ? "Mode café" : "Mode sombre"}</span>
+      {/* PIED : réglages + profil + DÉCONNEXION (toujours visible) */}
+      <div className={styles.footer}>
+        <NavLink to="/reglages" className={linkCls}>
+          <span className={styles.icon}>⚙</span> Réglages
+        </NavLink>
+        <button className={styles.themeBtn} onClick={toggleTheme}>
+          <span className={styles.icon}>{theme === "dark" ? "🌙" : "☀"}</span>
+          {theme === "dark" ? "Thème sombre" : "Thème clair"}
         </button>
 
-        <NavLink
-          to="/reglages"
-          className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ""}`}
-        >
-          <span className={styles.icon}>⚙</span>
-          Réglages
-        </NavLink>
-
-        {user && (
-          <div className={styles.profile}>
-            <div className={styles.profileLeft}>
-              <div className={styles.avatar}>{initiales}</div>
-              <div className={styles.profileInfo}>
-                <div className={styles.profileName}>
-                  {user.username}
-                  {isAdmin && <span className={styles.adminTag}>admin</span>}
-                </div>
-                <div className={styles.profileRole}>
-                  {roleConfig?.icon} {roleConfig?.label}
-                </div>
-              </div>
+        <div className={styles.profileCard}>
+          <span className={styles.profileAvatar}>{initiales}</span>
+          <div className={styles.profileInfo}>
+            <div className={styles.profileName}>{user?.username || "Utilisateur"}</div>
+            <div className={styles.profileRole}>
+              {roleConfig?.icon} {roleConfig?.label}
             </div>
-            <button className={styles.logoutBtn} onClick={handleLogout} title="Se déconnecter">⏏</button>
           </div>
-        )}
+        </div>
+
+        <button
+          className={styles.logoutBtn}
+          onClick={handleLogout}
+          title="Se déconnecter"
+          style={{
+            // sécurité visuelle si la classe CSS n'est pas encore définie
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            width: "100%",
+            marginTop: 8,
+            padding: "10px 12px",
+            borderRadius: 8,
+            border: "1px solid #5a1f1f",
+            background: "#2a1212",
+            color: "#ff6b6b",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          <span>⎋</span> Déconnexion
+        </button>
       </div>
     </nav>
   );

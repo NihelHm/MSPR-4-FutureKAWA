@@ -1,8 +1,8 @@
 // ==========================================================
-// PAGE DASHBOARD SIÈGE
+// PAGE DASHBOARD SIÈGE (vue métier consolidée)
 // ==========================================================
 
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useSiege } from "../hooks/useAlertes";
 import { useApp } from "../context/AppContext";
 import { PAYS_CONFIG } from "../constants/pays";
@@ -13,10 +13,14 @@ import { PageHeader, SectionTitle, Loader, ErrorBox, Grid, PaysStatusDot } from 
 import styles from "./Dashboard.module.css";
 
 export default function Dashboard() {
-  const { accessiblePays, roleConfig } = useApp();
+  const { accessiblePays, isAdmin } = useApp();
   const { stats, allLots, allAlertes, loading, error, paysStatus, refetch } = useSiege();
 
+  // Sécurité : l'administrateur n'accède pas aux données métier.
+  if (isAdmin) return <Navigate to="/admin" replace />;
+
   const paysVisibles = accessiblePays.map((id) => PAYS_CONFIG[id]).filter(Boolean);
+  const alerteLotIds = new Set((allAlertes || []).filter((a) => a.lot_id != null).map((a) => a.lot_id));
 
   if (loading) return <Loader text="Consolidation des données pays..." />;
 
@@ -57,13 +61,13 @@ export default function Dashboard() {
 
       <Grid cols={4}>
         <StatCard label="Total lots" value={stats?.totalLots ?? "—"} icon="📦" sub="Pays accessibles" />
-        <StatCard label="Capteurs IoT" value={stats?.totalCapteurs ?? "—"} icon="📡" sub="Tous lots confondus" />
+        <StatCard label="Capteurs IoT" value={stats?.totalCapteurs ?? "—"} icon="📡" sub="Tous entrepôts" />
         <StatCard
           label="Alertes actives"
           value={stats?.totalAlertes ?? "—"}
           icon="⚠"
           variant={stats?.totalAlertes > 0 ? "alert" : "default"}
-          sub="Qualité & péremption"
+          sub="Conditions & péremption"
         />
         <StatCard
           label="Pays actifs"
@@ -80,8 +84,8 @@ export default function Dashboard() {
 
       <div className={styles.twoCol}>
         <div>
-          <SectionTitle>Lots récents</SectionTitle>
-          <LotTable lots={allLots.slice(0, 10)} showPays />
+          <SectionTitle>Lots récents (FIFO)</SectionTitle>
+          <LotTable lots={allLots.slice(0, 10)} showPays alerteLotIds={alerteLotIds} />
           {allLots.length > 10 && (
             <div className={styles.seeAll}>
               {allLots.length - 10} lots supplémentaires — consultez chaque pays

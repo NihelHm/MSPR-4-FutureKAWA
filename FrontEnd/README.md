@@ -119,7 +119,7 @@ Après modification, **redémarrer** `npm run dev`.
 
 ## Comptes de démonstration
 
-Issus de `siege/init.sql` (le mot de passe réel dépend des hash de la base) :
+Issus de `siege/init.sql` (le mot de passe réel dépend des hash de la base) : 
 
 | Email                     | Rôle                  | Périmètre        |
 |---------------------------|-----------------------|------------------|
