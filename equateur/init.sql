@@ -1,18 +1,10 @@
-Trois changements que j'ai apporté au backend 
-CapteurCreate  j'ai ajouté lot_id optionnel
-CapteurUpdate : ajouté lot_id optionnel
- Nouvelle route PUT /capteurs/{id}/lot pour AFFECTER / DÉTACHER un lot
- (la route générique PUT /capteurs/{id} via update_item ne peut PAS
- remettre lot_id à NULL : update_item supprime les valeurs None.)
-
-sql:
 -- ==========================================================
--- INIT.SQL — BACKEND PAYS (exemple : Équateur)
--- Correctif clé : la table `capteur` reçoit une colonne `lot_id`
+-- INIT.SQL — BACKEND PAYS 
+--la table `capteur` reçoit une colonne `lot_id`
 -- afin de matérialiser la hiérarchie métier Site → Lot → Capteur.
 --   * capteur.site_id : entrepôt où le capteur est physiquement installé
 --   * capteur.lot_id  : lot que le capteur surveille (NULL = non affecté)
--- À répliquer pour Brésil et Colombie en adaptant pays / site / mesures.
+
 -- ==========================================================
  
 DROP TABLE IF EXISTS humidite CASCADE;

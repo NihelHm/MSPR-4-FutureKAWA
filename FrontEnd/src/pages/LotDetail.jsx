@@ -10,10 +10,14 @@ import { useLot } from "../hooks/useLots";
 import { useCapteursDuLot } from "../hooks/useCapteurs";
 import { useMesures } from "../hooks/useMesures";
 import { PAYS_CONFIG, STATUT_COLORS, CAPTEUR_TYPES } from "../constants/pays";
+import { calculerAlertesPays } from "../services/api";
 import MesureChart from "../components/MesureChart";
 import StatCard from "../components/StatCard";
 import { PageHeader, SectionTitle, Loader, ErrorBox, Grid, Card, Button, Badge } from "../components/UI";
 import styles from "./LotDetail.module.css";
+
+// États CALCULÉS : jamais lus depuis la BDD (peuvent être figés/obsolètes).
+const STATUTS_CALCULES = new Set(["en alerte", "périmé"]);
 
 function getAge(dateStockage) {
   if (!dateStockage) return null;
@@ -35,12 +39,38 @@ export default function LotDetail() {
     loading: mesLoading, conditionsIdéales, tolerances,
   } = useMesures(paysId, capteurIds.length ? capteurIds : null);
 
+  // --- ALERTES DU LOT : même calcul que le tableau / le compteur ----------
+  // Source de vérité UNIQUE : on réutilise calculerAlertesPays sur les données
+  // du lot. Les capteurs de useCapteursDuLot ont déjà lot_id === ce lot, donc
+  // leurs alertes de conditions sont rattachées à ce lot, + la péremption.
+  const alertesLot = useMemo(
+    () =>
+      calculerAlertesPays(paysId, {
+        sites: [],
+        lots: lot ? [lot] : [],
+        capteurs,
+        temperatures,
+        humidites,
+      }).filter((a) => a.lot_id != null && String(a.lot_id) === String(lot?.id ?? lotId)),
+    [paysId, lot, lotId, capteurs, temperatures, humidites]
+  );
+  const enAlerte = alertesLot.length > 0;
+  const perime = alertesLot.some((a) => a.type === "peremption");
+
   if (!config) return <ErrorBox message={`Pays inconnu : ${paysId}`} />;
   if (lotLoading) return <Loader text="Chargement du lot..." />;
   if (lotError) return <ErrorBox message={`Lot introuvable : ${lotError}`} />;
 
   const age = getAge(lot?.date_stockage);
-  const statutConf = STATUT_COLORS[lot?.statut] || { bg: "#222", text: "#aaa", label: lot?.statut };
+
+  // Statut affiché : "en alerte"/"périmé" dérivés du calcul, sinon statut workflow BDD.
+  let statutAffiche;
+  if (perime) statutAffiche = "périmé";
+  else if (enAlerte) statutAffiche = "en alerte";
+  else if (lot?.statut && !STATUTS_CALCULES.has(lot.statut)) statutAffiche = lot.statut;
+  else statutAffiche = "stocké";
+
+  const statutConf = STATUT_COLORS[statutAffiche] || { bg: "#222", text: "#aaa", label: statutAffiche };
 
   const tempMin = conditionsIdéales ? conditionsIdéales.temperature - tolerances.temperature : undefined;
   const tempMax = conditionsIdéales ? conditionsIdéales.temperature + tolerances.temperature : undefined;
@@ -63,7 +93,12 @@ export default function LotDetail() {
       </PageHeader>
 
       <Grid cols={4}>
-        <StatCard label="Statut" value={statutConf.label} icon="●" />
+        <StatCard
+          label="Statut"
+          value={statutConf.label}
+          icon="●"
+          variant={enAlerte || perime ? "alert" : "default"}
+        />
         <StatCard
           label="Âge en stock"
           value={age === null ? "—" : `${age}j`}

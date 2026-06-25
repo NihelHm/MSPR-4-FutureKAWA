@@ -79,7 +79,7 @@ export default function Capteurs() {
 
   const input = {
     width: "100%", padding: "10px 12px", borderRadius: 8,
-    border: "1px solid var(--border, #2a2a2a)", background: "var(--bg-elev, #161616)",
+    border: "1px solid var(--border, #ece7e7)", background: "var(--bg-elev, #161616)",
     color: "inherit",
   };
 

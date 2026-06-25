@@ -1,17 +1,19 @@
 // ==========================================================
 // PAGE PAYS DETAIL — niveau PAYS : liste des SITES (entrepôts)
+// Note : on n'affiche PAS de température/humidité « actuelle » ni de graphe
+// au niveau pays — ces valeurs agrègeraient des capteurs d'entrepôts (et de
+// lots) différents, ce qui n'a pas de sens. Les mesures se consultent au
+// niveau Lot. Seules les conditions IDÉALES (cible du pays) restent affichées.
 // ==========================================================
 
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useLots } from "../hooks/useLots";
 import { useSites } from "../hooks/useSites";
-import { useMesures } from "../hooks/useMesures";
-import { useAlertes } from "../hooks/useAlertes";
 import { useCapteurs } from "../hooks/useCapteurs";
+import { useAlertes } from "../hooks/useAlertes";
 import { PAYS_CONFIG } from "../constants/pays";
 import StatCard from "../components/StatCard";
-import MesureChart from "../components/MesureChart";
 import AlerteList from "../components/AlerteList";
 import { PageHeader, SectionTitle, Loader, ErrorBox, Grid } from "../components/UI";
 import styles from "./PaysDetail.module.css";
@@ -23,11 +25,6 @@ export default function PaysDetail() {
   const { sites, loading: sitesLoading, error: sitesError } = useSites(paysId);
   const { lots, loading: lotsLoading } = useLots(paysId);
   const { capteurs } = useCapteurs(paysId);
-  const {
-    temperatures, humidites, lastTemperature, lastHumidite,
-    loading: mesLoading, error: mesError,
-    getStatutTemperature, getStatutHumidite, conditionsIdéales, tolerances,
-  } = useMesures(paysId);
   const { alertes, loading: alertLoading } = useAlertes(paysId);
 
   // Regroupements lots/capteurs par site
@@ -49,42 +46,28 @@ export default function PaysDetail() {
 
   if (!config) return <ErrorBox message={`Pays inconnu : ${paysId}`} />;
 
-  const tempMin = conditionsIdéales ? conditionsIdéales.temperature - tolerances.temperature : undefined;
-  const tempMax = conditionsIdéales ? conditionsIdéales.temperature + tolerances.temperature : undefined;
-  const humMin = conditionsIdéales ? conditionsIdéales.humidite - tolerances.humidite : undefined;
-  const humMax = conditionsIdéales ? conditionsIdéales.humidite + tolerances.humidite : undefined;
-
-  const tempStatut = lastTemperature ? getStatutTemperature(lastTemperature.valeur) : null;
-  const humStatut = lastHumidite ? getStatutHumidite(lastHumidite.valeur) : null;
+  // Conditions idéales : directement issues de la config du pays (pas de mesures).
+  const conditions = config.conditions;
+  const tolerances = config.tolerances;
 
   return (
     <div className={styles.page}>
       <PageHeader title={`${config.flag} ${config.nom}`} />
 
-      {(sitesError || mesError) && (
+      {sitesError && (
         <ErrorBox message="Impossible de joindre le backend local. Vérifiez que Docker est démarré." />
       )}
 
       <div className={styles.condBanner}>
         <span className={styles.condLabel}>Conditions idéales</span>
-        <span className={styles.condVal}>🌡 {conditionsIdéales?.temperature}°C ± {tolerances?.temperature}°C</span>
+        <span className={styles.condVal}>🌡 {conditions?.temperature}°C ± {tolerances?.temperature}°C</span>
         <span className={styles.condSep}>·</span>
-        <span className={styles.condVal}>💧 {conditionsIdéales?.humidite}% ± {tolerances?.humidite}%</span>
+        <span className={styles.condVal}>💧 {conditions?.humidite}% ± {tolerances?.humidite}%</span>
       </div>
 
-      <Grid cols={4}>
+      <Grid cols={2}>
         <StatCard label="Sites / entrepôts" value={sites.length} icon="🏭" />
         <StatCard label="Lots stockés" value={lots.length} icon="📦" />
-        <StatCard
-          label="Température actuelle"
-          value={lastTemperature?.valeur ?? "—"} unit="°C" icon="🌡"
-          variant={tempStatut === "alerte" ? "alert" : tempStatut === "ok" ? "success" : "default"}
-        />
-        <StatCard
-          label="Humidité actuelle"
-          value={lastHumidite?.valeur ?? "—"} unit="%" icon="💧"
-          variant={humStatut === "alerte" ? "alert" : humStatut === "ok" ? "success" : "default"}
-        />
       </Grid>
 
       {/* SITES */}
@@ -110,19 +93,6 @@ export default function PaysDetail() {
                 </div>
               </Link>
             ))}
-          </div>
-        )}
-      </section>
-
-      {/* MESURES */}
-      <section className={styles.section}>
-        <SectionTitle>Historique des mesures (pays)</SectionTitle>
-        {mesLoading ? (
-          <Loader text="Chargement des mesures..." />
-        ) : (
-          <div className={styles.chartsGrid}>
-            <MesureChart data={temperatures} label="Température" unit="°C" color="#FF8C42" seuilMin={tempMin} seuilMax={tempMax} />
-            <MesureChart data={humidites} label="Humidité" unit="%" color="#64B5F6" seuilMin={humMin} seuilMax={humMax} />
           </div>
         )}
       </section>

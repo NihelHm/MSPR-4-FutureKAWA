@@ -3,6 +3,8 @@
 // - préremplit l'entrepôt via ?site=<id>
 // - permet d'AFFECTER des capteurs de l'entrepôt au lot (capteur.lot_id)
 //   conformément à la hiérarchie Site → Lot → Capteur.
+// - RÈGLE 1 capteur = 1 lot : un capteur déjà affecté à un AUTRE lot est
+//   désactivé (impossible à cocher).
 // ==========================================================
 
 import { useState, useEffect, useMemo } from "react";
@@ -66,15 +68,28 @@ export default function LotForm() {
     return capteurs.filter((c) => String(c.site_id) === String(form.site_id));
   }, [capteurs, form.site_id]);
 
+  // Un capteur est "pris ailleurs" s'il est déjà affecté à un AUTRE lot que celui-ci.
+  const estPrisAilleurs = (c) => c.lot_id != null && String(c.lot_id) !== String(lotId);
+
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const toggleCapteur = (id) =>
-    setSelectedCapteurs((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  // Sécurité : on n'autorise jamais de cocher un capteur déjà pris par un autre lot.
+  const toggleCapteur = (c) => {
+    if (estPrisAilleurs(c)) return; // règle 1 capteur = 1 lot
+    setSelectedCapteurs((prev) =>
+      prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id]
+    );
+  };
 
   // Affecte / retire les capteurs au lot via la route dédiée /capteurs/{id}/lot
   const syncCapteurs = async (targetLotId) => {
     const api = PAYS_API[paysId];
     const dejaLies = capteurs.filter((c) => String(c.lot_id) === String(targetLotId)).map((c) => c.id);
-    const aLier = selectedCapteurs.filter((id) => !dejaLies.includes(id));
+    // Filet de sécurité supplémentaire : on ne lie jamais un capteur appartenant déjà à un autre lot.
+    const idsPrisAilleurs = new Set(
+      capteurs.filter((c) => c.lot_id != null && String(c.lot_id) !== String(targetLotId)).map((c) => c.id)
+    );
+    const aLier = selectedCapteurs.filter((id) => !dejaLies.includes(id) && !idsPrisAilleurs.has(id));
     const aDelier = dejaLies.filter((id) => !selectedCapteurs.includes(id));
     await Promise.all([
       ...aLier.map((id) => api.linkCapteurToLot(id, Number(targetLotId))),
@@ -164,7 +179,7 @@ export default function LotForm() {
         <h3 className={styles.subTitle}>Capteurs surveillant ce lot</h3>
         <p className={styles.subHint}>
           {form.site_id
-            ? "Cochez les capteurs de l'entrepôt qui surveillent ce lot. Leurs mesures alimenteront les conditions et les alertes du lot."
+            ? "Cochez les capteurs de l'entrepôt qui surveillent ce lot. Un capteur ne peut surveiller qu'un seul lot : ceux déjà affectés ailleurs sont désactivés."
             : "Sélectionnez d'abord un entrepôt pour voir ses capteurs."}
         </p>
         {!form.site_id ? null : capLoading ? (
@@ -178,10 +193,24 @@ export default function LotForm() {
             {capteursDuSite.map((c) => {
               const tc = CAPTEUR_TYPES[c.type_capteur] || { icon: "📡", label: c.type_capteur };
               const checked = selectedCapteurs.includes(c.id);
-              const prisAilleurs = c.lot_id != null && String(c.lot_id) !== String(lotId);
+              const prisAilleurs = estPrisAilleurs(c);
               return (
-                <label key={c.id} className={`${styles.capteurItem} ${checked ? styles.capteurChecked : ""}`}>
-                  <input type="checkbox" checked={checked} onChange={() => toggleCapteur(c.id)} />
+                <label
+                  key={c.id}
+                  className={`${styles.capteurItem} ${checked ? styles.capteurChecked : ""}`}
+                  aria-disabled={prisAilleurs}
+                  title={prisAilleurs
+                    ? "Ce capteur surveille déjà un autre lot. Un capteur ne peut être affecté qu'à un seul lot."
+                    : undefined}
+                  style={prisAilleurs ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={prisAilleurs}
+                    onChange={() => toggleCapteur(c)}
+                    style={{ cursor: prisAilleurs ? "not-allowed" : "pointer" }}
+                  />
                   <span className={styles.capteurIcon}>{tc.icon}</span>
                   <span className={styles.capteurNom}>
                     {c.nom || `Capteur #${c.id}`}

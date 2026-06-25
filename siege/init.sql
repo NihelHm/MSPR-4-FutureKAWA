@@ -17,12 +17,7 @@ CREATE TABLE utilisateur (
 
 -- Tous les utilisateurs du système
 INSERT INTO utilisateur (username, email, password, role, is_admin)
-<<<<<<< Updated upstream
-VALUES (   
-    'Marie Dubois', 'm.dubois@futurekawa.com', '$2b$12$0o9w6oYfnqWBKMxgJLZe1uOTU/Jh.ckeFJ1/4E244ZCbbVxwy9hca', 'direction_siege', FALSE);
-======
-VALUES ('Marie Dubois', 'm.dubois@futurekawa.com', '$2a$13$aLyut95bZVeDVxYcXNXi8u.YJkppO6bW3jbCEsgiJ.FpiY.aUODFK', 'direction_siege', FALSE);
->>>>>>> Stashed changes
+VALUES ('Marie Dubois', 'm.dubois@futurekawa.com', '$2b$12$0o9w6oYfnqWBKMxgJLZe1uOTU/Jh.ckeFJ1/4E244ZCbbVxwy9hca', 'direction_siege', FALSE);
 
 INSERT INTO utilisateur (username, email, password, role, is_admin)
 VALUES ('Carlos Silva', 'c.silva@futurekawa.com', '$2b$12$0o9w6oYfnqWBKMxgJLZe1uOTU/Jh.ckeFJ1/4E244ZCbbVxwy9hca', 'responsable_bresil', FALSE);
@@ -34,8 +29,4 @@ INSERT INTO utilisateur (username, email, password, role, is_admin)
 VALUES ('Juan Reyes', 'j.reyes@futurekawa.com', '$2b$12$0o9w6oYfnqWBKMxgJLZe1uOTU/Jh.ckeFJ1/4E244ZCbbVxwy9hca', 'responsable_colombie', FALSE);
 
 INSERT INTO utilisateur (username, email, password, role, is_admin)
-<<<<<<< Updated upstream
 VALUES ('Admin FutureKawa', 'admin@futurekawa.com', '$2b$12$0o9w6oYfnqWBKMxgJLZe1uOTU/Jh.ckeFJ1/4E244ZCbbVxwy9hca', 'admin', TRUE);
-=======
-VALUES ('Admin FutureKawa', 'admin@futurekawa.com', '$2a$13$aLyut95bZVeDVxYcXNXi8u.YJkppO6bW3jbCEsgiJ.FpiY.aUODFK', 'admin', TRUE);
->>>>>>> Stashed changes
