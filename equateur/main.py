@@ -518,7 +518,7 @@ def calculer_statut_lot(lot_id: int):
         conn.close()
         raise HTTPException(status_code=404, detail="Lot introuvable")
 
-    statut = "conforme"
+    statut = "stocké"
 
     if lot["date_stockage"] is not None:
         anciennete = (date.today() - lot["date_stockage"]).days
