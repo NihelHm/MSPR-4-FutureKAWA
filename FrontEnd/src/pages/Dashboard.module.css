@@ -32,3 +32,7 @@
   .twoCol { grid-template-columns: 1fr; }
   .paysCards { grid-template-columns: 1fr; }
 }
+@media (max-width: 768px) {
+  .page { padding: 24px 16px; }
+}
+.page { padding: 36px 40px; max-width: none; }

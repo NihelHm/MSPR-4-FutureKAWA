@@ -18,3 +18,4 @@
 @media (max-width: 900px) {
   .page { padding: 20px; }
 }
+.page { padding: 36px 40px; max-width: none; }

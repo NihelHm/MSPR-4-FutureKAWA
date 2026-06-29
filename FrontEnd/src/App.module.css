@@ -1,11 +1,14 @@
 .layout {
   display: flex;
   min-height: 100vh;
+  max-width: 100%;
+  overflow-x: hidden;
   background: var(--bg);
 }
 
 .main {
   flex: 1;
+  min-width: 0;          /* CLÉ : autorise la colonne à rétrécir sous la largeur d'un tableau */
   margin-left: 220px;
   min-height: 100vh;
   background: var(--bg);
@@ -19,5 +22,9 @@
 @media (max-width: 768px) {
   .main {
     margin-left: 0;
+    padding-top: 56px;   /* espace pour la barre mobile fixe */
+    max-width: 100%;
+    overflow-x: hidden;
   }
+  .guard { padding: 24px 16px; }
 }

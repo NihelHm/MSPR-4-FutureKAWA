@@ -36,3 +36,4 @@
   .table { font-size: 12px; }
   .actions { flex-direction: column; }
 }
+.page { padding: 36px 40px; max-width: none; }

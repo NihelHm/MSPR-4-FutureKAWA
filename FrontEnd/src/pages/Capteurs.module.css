@@ -1,5 +1,5 @@
-.page { padding: 36px 40px; max-width: 1200px; }
 
+.page { padding: 36px 40px; max-width: 1000px; }
 .back {
   background: none; border: none; cursor: pointer;
   color: var(--text-secondary); font-family: var(--font-body);
@@ -38,7 +38,10 @@
   border: 1px dashed var(--border); border-radius: 12px;
 }
 
-@media (max-width: 900px) {
-  .page { padding: 20px; }
-  .chartsGrid { grid-template-columns: 1fr; }
+@media (max-width: 1000px) {
+  .twoCol { grid-template-columns: 1fr; }
+  .paysCards { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .page { padding: 24px 16px; }
 }

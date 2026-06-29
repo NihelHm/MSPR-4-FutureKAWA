@@ -79,14 +79,13 @@ export default function Capteurs() {
 
   const input = {
     width: "100%", padding: "10px 12px", borderRadius: 8,
-    border: "1px solid var(--border, #ece7e7)", background: "var(--bg-elev, #161616)",
+    border: "1px solid var(--border, #2a2a2a)", background: "var(--bg-elev, #161616)",
     color: "inherit",
   };
 
   return (
-    <div>
-      <PageHeader title={`📡 Capteurs — ${config.flag} ${config.nom}`} sub="Capteurs IoT par entrepôt" />
-
+  <div style={{ maxWidth: 1700, margin: "3% 2% " }}>
+    <PageHeader title={`📡 Capteurs — ${config.flag} ${config.nom}`} sub="Capteurs IoT par entrepôt" />
       {mismatch && (
         <ErrorBox
           message={`Attention : le backend interrogé pour « ${config.nom} » répond « ${mismatch} ». Les pays/ports sont probablement inversés dans la configuration (.env / docker-compose). Vérifiez VITE_URL_${paysId.toUpperCase()} et le mapping des conteneurs.`}

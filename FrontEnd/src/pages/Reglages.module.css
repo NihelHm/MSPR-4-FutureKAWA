@@ -38,3 +38,4 @@
   .page { padding: 20px; }
   .profileGrid { grid-template-columns: 1fr; }
 }
+.page { padding: 36px 40px; max-width: none; }

@@ -53,3 +53,4 @@
   .page { padding: 20px; }
   .formGrid { grid-template-columns: 1fr; }
 }
+.page { padding: 36px 40px; max-width: 1200px; }

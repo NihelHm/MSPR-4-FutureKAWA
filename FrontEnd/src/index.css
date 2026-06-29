@@ -80,3 +80,37 @@ button { font-family: var(--font-body); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
 ::selection { background: var(--accent-dim); color: var(--accent); }
+/* ========================================================== */
+/* VARIABLES MANQUANTES — corrige les champs sombres (Capteurs/Admin) */
+/* qui utilisaient var(--bg-elev) jamais défini → fond #161616      */
+/* ========================================================== */
+:root, [data-theme="dark"] { --bg-elev: #161616; }
+[data-theme="light"]       { --bg-elev: #FBF3E8; }
+
+/* ========================================================== */
+/* ANTI-DÉBORDEMENT HORIZONTAL + RESPONSIVE GLOBAL            */
+/* ========================================================== */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;        /* empêche le "dézoom"/coupure après actualisation */
+}
+
+img, svg, canvas { max-width: 100%; height: auto; }
+
+@media (max-width: 768px) {
+  html { font-size: 15px; }
+
+  /* Les tableaux défilent DANS leur cadre, sans élargir la page */
+  table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 480px) {
+  html { font-size: 14px; }
+}

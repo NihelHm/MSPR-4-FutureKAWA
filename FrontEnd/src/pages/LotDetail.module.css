@@ -1,4 +1,4 @@
-.page { padding: 36px 40px; max-width: 1200px; }
+.page { padding: 36px 40px; max-width: none; }
 
 .back {
   background: none; border: none; cursor: pointer;
@@ -43,3 +43,7 @@
   .infoGrid { grid-template-columns: 1fr 1fr; }
   .chartsGrid { grid-template-columns: 1fr; }
 }
+@media (max-width: 600px) {
+  .infoGrid { grid-template-columns: 1fr; }
+}
+
