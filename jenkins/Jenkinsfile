@@ -2,8 +2,10 @@ pipeline {
     agent any
 
     stages {
+
         stage('Checkout') {
             steps {
+                checkout scm
                 echo 'Code récupéré depuis GitHub'
             }
         }
@@ -23,10 +25,6 @@ pipeline {
 
         stage('Check tests files') {
             steps {
-                sh 'ls -la Tests/bresil'
-                sh 'ls -la Tests/colombie'
-                sh 'ls -la Tests/equateur'
-
                 sh 'test -f Tests/bresil/test_statut_lot.py'
                 sh 'test -f Tests/colombie/test_statut_lot.py'
                 sh 'test -f Tests/equateur/test_statut_lot.py'
@@ -38,24 +36,22 @@ pipeline {
         stage('Run Python tests') {
             steps {
                 sh '''
-                    python3 --version
-                    pip3 --version
-
-                    pip3 install --break-system-packages pytest requests paho-mqtt
-
-                    python3 Tests/bresil/test_statut_lot.py
-                    python3 Tests/colombie/test_statut_lot.py
-                    python3 Tests/equateur/test_statut_lot.py
+                    docker run --rm \
+                        -v "$PWD":/app \
+                        -w /app \
+                        python:3.11 \
+                        bash -c "
+                            python --version &&
+                            pip install pytest requests paho-mqtt psycopg2-binary &&
+                            python -m pytest -v Tests/
+                        "
                 '''
-
-                echo 'Tests Python exécutés pour les 3 pays'
             }
         }
 
         stage('Validate compose files') {
             steps {
                 sh 'find . -name "docker-compose.yml"'
-                sh 'find . -name "docker-compose.yml" | grep -q docker-compose.yml'
                 echo 'Fichiers docker-compose détectés'
             }
         }
@@ -65,6 +61,20 @@ pipeline {
                 sh 'find . -maxdepth 3 -type f > project_files.txt'
                 archiveArtifacts artifacts: 'project_files.txt', fingerprint: true
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline terminée'
+        }
+
+        success {
+            echo 'Tous les tests sont passés.'
+        }
+
+        failure {
+            echo 'La pipeline a échoué.'
         }
     }
 }
