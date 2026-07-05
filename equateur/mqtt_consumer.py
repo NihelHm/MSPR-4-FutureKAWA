@@ -10,11 +10,11 @@ DB_CONFIG = {
     "dbname":   os.getenv("DB_NAME",     "bdd_equateur"),
     "user":     os.getenv("DB_USER",     "user"),
     "password": os.getenv("DB_PASSWORD", "password"),
-    "host":     os.getenv("DB_HOST",     "db"),
-    "port":     os.getenv("DB_PORT",     "5432"),
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port":     os.getenv("DB_PORT",     "5435"),
 }
-MQTT_HOST  = os.getenv("MQTT_HOST", "mqtt")
-MQTT_PORT  = int(os.getenv("MQTT_PORT", "1883"))
+MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
+MQTT_PORT  = int(os.getenv("MQTT_PORT", "1885"))
 MQTT_TOPIC = os.getenv("MQTT_TOPIC", "equateur/mesures")
 
 SEUILS = {"Équateur": {"temperature": 31, "humidite": 60}}

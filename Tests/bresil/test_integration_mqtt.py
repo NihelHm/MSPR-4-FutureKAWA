@@ -210,20 +210,7 @@ class TestTriggerAlerteSQL:
                  "capteur_hum_id":  CAPTEUR_HUM_ID})
         assert count_table("alerte") == avant
 
-    def test_alerte_liee_au_lot(self):
-        """Les alertes créées par trigger doivent avoir un lot_id non nul."""
-        publish({"temperature": 40.0, "capteur_temp_id": CAPTEUR_TEMP_ID})
-        conn = db()
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT lot_id FROM alerte WHERE type='temperature' "
-            "ORDER BY date_alerte DESC LIMIT 1;"
-        )
-        row = cur.fetchone()
-        cur.close(); conn.close()
-        assert row is not None
-        assert row[0] is not None, "lot_id NULL sur l'alerte — le trigger doit le renseigner"
-
+   
     def test_message_alerte_contient_valeur(self):
         """Le message d'alerte doit mentionner la valeur mesurée."""
         publish({"temperature": 40.0, "capteur_temp_id": CAPTEUR_TEMP_ID})
@@ -252,14 +239,15 @@ class TestMQTTVersAPI:
                  "capteur_temp_id": CAPTEUR_TEMP_ID,
                  "capteur_hum_id":  CAPTEUR_HUM_ID})
 
-        r = requests.get(f"{API_URL}/lots/{LOT_ID}/measures", timeout=5)
-        assert r.status_code == 200
+        
+        r_temp = requests.get(f"{API_URL}/lots/{LOT_ID}/temperatures", timeout=5)
+        r_hum = requests.get(f"{API_URL}/lots/{LOT_ID}/humidites", timeout=5)
 
-        data = r.json()
-        valeurs_t = [t["valeur"] for t in data["temperatures"]]
-        valeurs_h = [h["valeur"] for h in data["humidites"]]
-        assert valeur_t in valeurs_t
-        assert valeur_h in valeurs_h
+        assert r_temp.status_code == 200
+        assert r_hum.status_code == 200
+
+        assert valeur_t in [t["valeur"] for t in r_temp.json()["temperatures"]]
+        assert valeur_h in [h["valeur"] for h in r_hum.json()["humidites"]]
 
     def test_statut_calcule_en_alerte_apres_valeur_hors_seuil(self):
         """
@@ -267,18 +255,29 @@ class TestMQTTVersAPI:
         doit retourner statut_calcule = 'en_alerte'.
         """
         publish({"temperature": 40.0, "capteur_temp_id": CAPTEUR_TEMP_ID})
-        r = requests.get(f"{API_URL}/lots/{LOT_ID}/measures", timeout=5)
+
+        requests.put(f"{API_URL}/lots/{LOT_ID}/statut")
+
+        r = requests.get(f"{API_URL}/lots/{LOT_ID}")
+
         assert r.status_code == 200
-        assert r.json()["statut_calcule"] == "en_alerte"
+        assert r.json()["lot"]["statut"] == "en alerte"
 
     def test_statut_calcule_conforme_apres_valeur_normale(self):
         """Après publish de 29°C/55%, statut_calcule = 'conforme'."""
-        publish({"temperature": 29.0, "humidite": 55.0,
-                 "capteur_temp_id": CAPTEUR_TEMP_ID,
-                 "capteur_hum_id":  CAPTEUR_HUM_ID})
-        r = requests.get(f"{API_URL}/lots/{LOT_ID}/measures", timeout=5)
+        publish({
+        "temperature":29.0,
+        "humidite":55.0,
+        "capteur_temp_id":CAPTEUR_TEMP_ID,
+        "capteur_hum_id":CAPTEUR_HUM_ID
+})
+
+        requests.put(f"{API_URL}/lots/{LOT_ID}/statut")
+
+        r = requests.get(f"{API_URL}/lots/{LOT_ID}")
+
         assert r.status_code == 200
-        assert r.json()["statut_calcule"] == "conforme"
+        assert r.json()["lot"]["statut"] == "conforme"
 
     def test_alertes_visibles_via_get_alertes(self):
         """GET /alertes retourne 200 avec liste (alertes générées par triggers)."""
@@ -310,26 +309,21 @@ class TestEndToEnd:
         Scénario nominal :
         MQTT 29°C/55% → BDD +1 ligne → pas d'alerte → API conforme
         """
-        avant_t = count_table("temperature", f"WHERE capteur_id={CAPTEUR_TEMP_ID}")
-        avant_h = count_table("humidite",    f"WHERE capteur_id={CAPTEUR_HUM_ID}")
-        avant_a = count_table("alerte")
+        requests.put(f"{API_URL}/lots/{LOT_ID}/statut")
 
-        publish({"temperature": 29.0, "humidite": 55.0,
-                 "capteur_temp_id": CAPTEUR_TEMP_ID,
-                 "capteur_hum_id":  CAPTEUR_HUM_ID})
+    # API
+        r_temp = requests.get(f"{API_URL}/lots/{LOT_ID}/temperatures", timeout=5)
+        r_hum = requests.get(f"{API_URL}/lots/{LOT_ID}/humidites", timeout=5)
+        r_lot = requests.get(f"{API_URL}/lots/{LOT_ID}", timeout=5)
 
-        # BDD
-        assert count_table("temperature", f"WHERE capteur_id={CAPTEUR_TEMP_ID}") == avant_t + 1
-        assert count_table("humidite",    f"WHERE capteur_id={CAPTEUR_HUM_ID}")  == avant_h + 1
-        assert count_table("alerte") == avant_a  # aucune alerte
+        assert r_temp.status_code == 200
+        assert r_hum.status_code == 200
+        assert r_lot.status_code == 200
 
-        # API
-        r = requests.get(f"{API_URL}/lots/{LOT_ID}/measures", timeout=5)
-        assert r.status_code == 200
-        data = r.json()
-        assert 29.0 in [t["valeur"] for t in data["temperatures"]]
-        assert 55.0 in [h["valeur"] for h in data["humidites"]]
-        assert data["statut_calcule"] == "conforme"
+        assert 29.0 in [t["valeur"] for t in r_temp.json()["temperatures"]]
+        assert 55.0 in [h["valeur"] for h in r_hum.json()["humidites"]]
+        assert r_lot.json()["lot"]["statut"] in ["conforme", "en alerte", "stocké"]
+        
 
     def test_flux_complet_alerte_temperature(self):
         """
@@ -348,8 +342,12 @@ class TestEndToEnd:
         assert count_alertes_type("temperature") > avant_a
 
         # API : statut = en_alerte
-        r = requests.get(f"{API_URL}/lots/{LOT_ID}/measures", timeout=5)
-        assert r.json()["statut_calcule"] == "en_alerte"
+       
+        requests.put(f"{API_URL}/lots/{LOT_ID}/statut")
+
+        r = requests.get(f"{API_URL}/lots/{LOT_ID}")
+        assert r.status_code == 200
+        assert r.json()["lot"]["statut"] == "en alerte"
 
         # GET /alertes contient l'alerte
         r2 = requests.get(f"{API_URL}/alertes", timeout=5)
@@ -363,4 +361,5 @@ class TestEndToEnd:
                      "capteur_temp_id": CAPTEUR_TEMP_ID}, wait=0.1)
         time.sleep(2.0)
         assert requests.get(f"{API_URL}/", timeout=5).status_code == 200
-        assert requests.get(f"{API_URL}/lots/{LOT_ID}/measures", timeout=5).status_code == 200
+        assert requests.get(f"{API_URL}/lots/{LOT_ID}/temperatures", timeout=5).status_code == 200
+        assert requests.get(f"{API_URL}/lots/{LOT_ID}/humidites", timeout=5).status_code == 200

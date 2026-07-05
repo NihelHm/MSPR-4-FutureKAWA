@@ -83,11 +83,12 @@ VALUES ('Entrepôt São Paulo', 'São Paulo', 1);
 INSERT INTO lot (reference, date_reception, date_stockage, statut, site_id)
 VALUES ('LOT-BR-001', '2026-04-01', '2026-04-01', 'stocké', 1);
 
-INSERT INTO capteur (nom, type_capteur, site_id)
-VALUES ('Capteur Température Brésil 1', 'temperature', 1);
+INSERT INTO capteur (nom, type_capteur, site_id, lot_id)
+VALUES ('Capteur Température Brésil 1', 'temperature', 1, 1);
 
-INSERT INTO capteur (nom, type_capteur, site_id)
-VALUES ('Capteur Humidité Brésil 1', 'humidite', 1);
+INSERT INTO capteur (nom, type_capteur, site_id, lot_id)
+VALUES ('Capteur Humidité Brésil 1', 'humidite', 1, 1);
+
 
 INSERT INTO temperature (valeur, capteur_id)
 VALUES (26.5, 1);

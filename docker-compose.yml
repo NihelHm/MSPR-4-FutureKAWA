@@ -144,6 +144,60 @@ services:
       - "1885:1883"
 
 
+  consumer_bresil:
+    build: ./bresil
+    container_name: consumer_bresil
+    restart: always
+    depends_on:
+      - db_bresil
+      - mqtt_bresil
+    environment:
+      DB_HOST: db_bresil
+      DB_NAME: bdd_bresil
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_PORT: 5432
+      MQTT_HOST: mqtt_bresil
+      MQTT_PORT: 1883
+      MQTT_TOPIC: bresil/mesures
+    command: ["python", "mqtt_consumer.py"]
+
+  consumer_colombie:
+    build: ./colombie
+    container_name: consumer_colombie
+    restart: always
+    depends_on:
+      - db_colombie
+      - mqtt_colombie
+    environment:
+      DB_HOST: db_colombie
+      DB_NAME: bdd_colombie
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_PORT: 5432
+      MQTT_HOST: mqtt_colombie
+      MQTT_PORT: 1883
+      MQTT_TOPIC: colombie/mesures
+    command: ["python", "mqtt_consumer.py"]
+
+  consumer_equateur:
+    build: ./equateur
+    container_name: consumer_equateur
+    restart: always
+    depends_on:
+      - db_equateur
+      - mqtt_equateur
+    environment:
+      DB_HOST: db_equateur
+      DB_NAME: bdd_equateur
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_PORT: 5432
+      MQTT_HOST: mqtt_equateur
+      MQTT_PORT: 1883
+      MQTT_TOPIC: equateur/mesures
+    command: ["python", "mqtt_consumer.py"]
+
   jenkins:
     image: jenkins/jenkins:lts
     container_name: futurekawa_jenkins
