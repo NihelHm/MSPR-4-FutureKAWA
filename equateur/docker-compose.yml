@@ -89,7 +89,7 @@ services:
       SMTP_PORT:      587
       SMTP_USER:      0a516754fa9be9
       SMTP_PASSWORD:  d09cac0b66eff2
-      MANAGER_EMAIL:  test@futurekawa.com
+      MANAGER_EMAIL:  a.torres@futurekawa.com
     command: ["python", "alerting_engine.py"]
 
 volumes:

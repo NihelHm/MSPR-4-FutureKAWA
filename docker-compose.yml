@@ -143,12 +143,6 @@ services:
     ports:
       - "1885:1883"
 
-  mailhog:
-    image: mailhog/mailhog
-    container_name: mailhog_futurekawa
-    ports:
-      - "1025:1025"
-      - "8025:8025"
 
   jenkins:
     image: jenkins/jenkins:lts
