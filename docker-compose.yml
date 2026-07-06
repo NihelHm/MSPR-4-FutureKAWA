@@ -199,13 +199,13 @@ services:
     command: ["python", "mqtt_consumer.py"]
 
   jenkins:
-    image: jenkins/jenkins:lts
+    build: ./jenkins
     container_name: futurekawa_jenkins
     ports:
-      - "8080:8080"
-      - "50000:50000"
+    - "8080:8080"
+    - "50000:50000"
     volumes:
-      - jenkins_home:/var/jenkins_home
-
+    - jenkins_home:/var/jenkins_home
 volumes:
   jenkins_home:
+  
